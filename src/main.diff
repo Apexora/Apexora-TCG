@@ -1,0 +1,183 @@
+diff --git a/src/main.ts b/src/main.ts
+index cb6c6cc..499e995 100644
+--- a/src/main.ts
++++ b/src/main.ts
+@@ -9,6 +9,9 @@ import type { Action, Keyword, Player, SpellSpeed, State, Unit } from './engine/
+ import { imageOf, nameOf, resetSkins, setSkin } from './ui/skins';
+ import { LocalChannel } from './ui/chat';
+ import { isMuted, setTension, sfx, toggleMute } from './ui/sound';
++import { Online } from './net/online';
++import { applyMove, toView, view, type Seat } from './net/sync';
++import { closeMenu, openOnlineMenu, setRoomTag } from './net/onlineUi';
+ 
+ const app = document.getElementById('app')!;
+ const pv = document.createElement('div'); pv.className = 'preview'; document.body.append(pv);
+@@ -32,6 +35,11 @@ let sel = new Set<number>(), mulSel = new Set<number>(), editing = false, chatOp
+ let tgt: { hand: number; kind: 'enemy' | 'ally' } | null = null, selAtk: number | null = null, pend: { side: number; idx: number[] } | null = null;
+ let prev = [20, 20], seen = new Set<number>(), prevPlayed = [0, 0], lastRound = 0, prevHp = new Map<number, [number, number]>(), lastBoard: number[][] = [[], []], prevS: State = s;
+ const htmlCache = new Map<number, string>();
++// ---------- Online ----------
++let online: Online | null = null, ME: Seat = 0;
++const fac = (i: number) => (i + ME) % 2;                         // 0 = Luminarae, 1 = Umbra (según el asiento)
++const facName = (i: number) => (fac(i) ? 'Umbra' : 'Luminarae');
++const react = (k: 'cast' | 'win' | 'lose') => { if (!online) chat.react(k); };  // las reacciones del chat son de la IA
+ 
+ function vfx(cls: string, text = '') { const d = document.createElement('div'); d.className = 'vfx ' + cls; d.textContent = text; document.body.append(d); setTimeout(() => d.remove(), 1400); }
+ function toast(t: string) { document.querySelectorAll('.toast').forEach(e => e.remove()); const d = document.createElement('div'); d.className = 'vfx toast'; d.textContent = t; document.body.append(d); setTimeout(() => d.remove(), 1800); }
+@@ -49,7 +57,7 @@ chat.onMessage(m => {
+   if (m.side === 'sys') d.textContent = m.text; else { const b = document.createElement('b'); b.textContent = m.from + ':'; d.append(b, document.createTextNode(m.text)); }
+   msgs.append(d); msgs.scrollTop = msgs.scrollHeight; if (m.side === 'foe') sfx('msg');
+ });
+-const sendChat = () => { const v = inp.value.trim(); if (v) chat.send(v); inp.value = ''; };
++const sendChat = () => { const v = inp.value.trim(); if (v && online) chat.sys('El chat entre jugadores llegará en la próxima versión.'); else if (v) chat.send(v); inp.value = ''; };
+ chatEl.querySelector('#chat-send')!.addEventListener('click', sendChat);
+ inp.addEventListener('keydown', e => { if (e.key === 'Enter') sendChat(); e.stopPropagation(); });
+ chatEl.querySelectorAll<HTMLElement>('.tabs button').forEach(b => b.addEventListener('click', () => {
+@@ -83,13 +91,13 @@ function card(id: string, attr = '', cls = '', u?: Unit, extra = ''): string {
+ function spot(id: string, side: number, u?: Unit) {
+   document.querySelectorAll('.spot').forEach(e => e.remove());
+   const d = document.createElement('div'); d.className = 'vfx spot';
+-  d.innerHTML = `<div class="spot-l">${side ? 'Umbra juega' : 'Juegas'}</div>${card(id, '', '', u)}`;
++  d.innerHTML = `<div class="spot-l">${side ? 'Rival juega' : 'Juegas'}</div>${card(id, '', '', u)}`;
+   document.body.append(d); setTimeout(() => d.remove(), 1250);
+ }
+ function portrait(p: Player, i: number, label: string): string {
+   const fl = p.nexus < prev[i] ? 'hit' : p.nexus > prev[i] ? 'heal' : '', d = p.nexus - prev[i];
+   const gems = Array.from({ length: p.maxMana }, (_, k) => `<u class="${k < p.mana ? 'on' : ''}"></u>`).join('');
+-  return `<div class="pt ${i ? 'foe' : 'me'}"><div class="ava"><span>${i ? '☾' : '☀'}</span><img src="${import.meta.env.BASE_URL}img/avatar_${i ? 'umb' : 'lum'}.webp" onerror="this.remove()"></div>
++  return `<div class="pt ${i ? 'foe' : 'me'}"><div class="ava"><span>${fac(i) ? '☾' : '☀'}</span><img src="${import.meta.env.BASE_URL}img/avatar_${fac(i) ? 'umb' : 'lum'}.webp" onerror="this.remove()"></div>
+     <div class="orb ${fl}">${Math.max(0, p.nexus)}${d ? `<span class="fx">${d > 0 ? '+' : ''}${d}</span>` : ''}</div>
+     <div class="pname">${label}</div><div class="pmana">${gems}<span class="sm">${[0, 1, 2].map(k => `<i class="${k < p.spell ? 'on' : ''}"></i>`).join('')}</span></div></div>`;
+ }
+@@ -97,8 +105,9 @@ function portrait(p: Player, i: number, label: string): string {
+ // ---------- Ataques con animación + informe ----------
+ function runAttack(units: number[], side: number) {
+   if (s.phase !== 'main') return;
++  if (online) { dispatch({ type: 'attack', units }); return; }  // online: la animación se hace al llegar la jugada confirmada
+   const gid = gameId; busy = true; pend = { side, idx: units }; sfx('attack');
+-  vfx('banner small', `⚔ ${side ? 'Umbra ataca' : 'Atacas'} con ${units.length}`); render();
++  vfx('banner small', `⚔ ${side ? 'El rival ataca' : 'Atacas'} con ${units.length}`); render();
+   setTimeout(() => {
+     if (gid !== gameId) return;
+     pend = null; busy = false; const n = step(s, { type: 'attack', units });
+@@ -110,7 +119,7 @@ function report(b: State, a: State) {
+   const at = b.token, df = 1 - at, dmg = b.p[df].nexus - a.p[df].nexus;
+   const dead = (i: number) => b.p[i].board.filter(u => !a.p[i].board.some(x => x.uid === u.uid)).map(u => nameOf(u.card));
+   const mine = dead(0), theirs = dead(1), n = b.attackers.length;
+-  const parts = [`${at ? 'Umbra atacó' : 'Atacaste'} con ${n}`, dmg > 0 ? `${at ? 'Tu Nexo' : 'Nexo rival'} −${dmg}` : 'sin daño al Nexo'];
++  const parts = [`${at ? 'El rival atacó' : 'Atacaste'} con ${n}`, dmg > 0 ? `${at ? 'Tu Nexo' : 'Nexo rival'} −${dmg}` : 'sin daño al Nexo'];
+   if (mine.length) parts.push('Tuyas caídas: ' + mine.join(', ')); if (theirs.length) parts.push('Rivales caídas: ' + theirs.join(', '));
+   const txt = '⚔ ' + parts.join(' · ');
+   const d = document.createElement('div'); d.className = 'vfx report' + (at ? '' : ' good'); d.textContent = txt; document.body.append(d); setTimeout(() => d.remove(), 3600); chat.sys(txt);
+@@ -161,15 +170,15 @@ function render() {
+   const stack = s.stack.length ? `<div class="stacktray"><b>✦ Pila</b>${[...s.stack].reverse().map(x => `<span class="stackitem">${nameOf(x.card)} · ${x.owner ? 'Rival' : 'Tú'}</span>`).join('')}</div>` : '';
+   const n = me.hand.length, fan = me.hand.map((id, i) => { const r = i - (n - 1) / 2;
+     return `<div class="slotc" data-a="hand" data-i="${i}" style="--rot:${(r * 3.2).toFixed(1)}deg;--y:${(r * r * 2.6).toFixed(1)}px" aria-label="${esc(nameOf(id))}, coste ${CARDS[id].cost}">${card(id, '', `${myTurn && canPlay(s, 0, i) ? 'ok' : 'no'} ${tgt?.hand === i ? 'sel' : ''}`)}</div>`; }).join('');
+-  const mullHTML = s.phase === 'mulligan' ? `<div class="mull"><h2>Mulligan</h2><p>Toca las cartas que quieras reemplazar (0 a 4)</p><div class="mrow">${me.hand.map((id, i) => card(id, `data-a="mul" data-i="${i}"`, mulSel.has(i) ? 'sel swap' : '')).join('')}</div><button class="btn" data-a="mulgo">${mulSel.size ? `Reemplazar ${mulSel.size}` : 'Conservar mano'}</button></div>` : '';
++  const mullHTML = s.phase === 'mulligan' && s.mull[0] ? `<div class="mull"><h2>Mulligan</h2><p>Esperando al rival…</p></div>` : s.phase === 'mulligan' ? `<div class="mull"><h2>Mulligan</h2><p>Toca las cartas que quieras reemplazar (0 a 4)</p><div class="mrow">${me.hand.map((id, i) => card(id, `data-a="mul" data-i="${i}"`, mulSel.has(i) ? 'sel swap' : '')).join('')}</div><button class="btn" data-a="mulgo">${mulSel.size ? `Reemplazar ${mulSel.size}` : 'Conservar mano'}</button></div>` : '';
+   app.innerHTML = `<header><div class="brand"><span class="brand-mark">✦</span><h1>Cartas <small>ALFA</small></h1></div><div class="header-state"><span class="rd">Ronda ${s.round}/40</span><span class="phase-chip">${phaseName}</span><span class="tok">${s.tok[0] ? '⚑ Tienes la ficha de ataque' : s.tok[1] ? '⚑ Ficha de ataque: rival' : '⚑ Ficha gastada'}</span></div>
+-    <nav class="toolbar"><button class="ghost" data-a="chat">${chatOpen ? '✕ Cerrar' : '☰ Chat / registro'}</button><button class="ghost" data-a="edit">${editing ? '← Volver' : '🎨 Editor'}</button><button class="ghost icon-btn" data-a="mute">${isMuted() ? '🔇' : '🔊'}</button><button class="ghost" data-a="new">↻ Nueva partida</button></nav></header>` +
++    <nav class="toolbar"><button class="ghost" data-a="chat">${chatOpen ? '✕ Cerrar' : '☰ Chat / registro'}</button><button class="ghost" data-a="edit">${editing ? '← Volver' : '🎨 Editor'}</button><button class="ghost icon-btn" data-a="mute">${isMuted() ? '🔇' : '🔊'}</button><button class="ghost" data-a="online">🌐 Online</button><button class="ghost" data-a="new">↻ Nueva partida</button></nav></header>` +
+     (editing ? editor() : `<main class="stage ${tgt ? 'targeting' : ''}">
+-      <div class="foehand">${Array.from({ length: foe.hand.length }, () => '<i></i>').join('')}</div>${portrait(foe, 1, 'Umbra · Rival')}
++      <div class="foehand">${Array.from({ length: foe.hand.length }, () => '<i></i>').join('')}</div>${portrait(foe, 1, `${facName(1)} · Rival`)}
+       <div class="plane-wrap"><div class="plane"><div class="lane foeback">${F.back}</div><div class="lane foecomb">${F.comb}</div><div class="lane mycomb">${M.comb}</div><div class="lane myback">${M.back}</div></div></div>
+       <div class="pile p1" title="Mazo rival"><b>${foe.deck.length}</b></div><div class="pile p0" title="Tu mazo"><b>${me.deck.length}</b></div>
+       <div class="msgbar"><span class="pill ${myTurn ? 'go' : ''}">${msg}</span></div>${bs}${stack}
+-      ${portrait(me, 0, 'Luminarae · Tú')}
++      ${portrait(me, 0, `${facName(0)} · Tú`)}
+       <div class="manapanel"><div class="mrow2"><b>MANÁ</b><span>${me.mana}/${me.maxMana}</span></div><div class="gems">${Array.from({ length: Math.max(me.maxMana, 1) }, (_, k) => `<u class="${k < me.mana ? 'on' : ''}"></u>`).join('')}</div>
+         <div class="mrow2"><b>HECHIZO</b><span>${me.spell}/3</span></div><div class="gems sp">${[0, 1, 2].map(k => `<u class="${k < me.spell ? 'on' : ''}"></u>`).join('')}</div></div>
+       <button class="endbtn ${mode}" data-a="${mode === 'atk' ? 'attack' : 'go'}" ${mode === 'wait' ? 'disabled' : ''}><span>${label}</span></button>
+@@ -181,13 +190,13 @@ function render() {
+   s.p.forEach((p, i) => p.board.filter(u => !seen.has(u.uid)).forEach(u => spot(u.card, i, u)));
+   if (me.nexus < prev[0]) vfx('vhit'); else if (me.nexus > prev[0]) vfx('vheal');
+   if (me.nexus < prev[0] || foe.nexus < prev[1]) sfx('hurt'); if (me.nexus > prev[0] || foe.nexus > prev[1]) sfx('heal');
+-  s.p.forEach((p, i) => { const id = p.played[p.played.length - 1]; if (p.played.length > prevPlayed[i] && id && CARDS[id].type === 'spell') { vfx('cast ' + id.slice(0, 3)); sfx('spell_' + id.slice(0, 3)); spot(id, i); if (i === 1) chat.react('cast'); } });
++  s.p.forEach((p, i) => { const id = p.played[p.played.length - 1]; if (p.played.length > prevPlayed[i] && id && CARDS[id].type === 'spell') { vfx('cast ' + id.slice(0, 3)); sfx('spell_' + id.slice(0, 3)); spot(id, i); if (i === 1) react('cast'); } });
+   if (s.round !== lastRound && !editing && s.round > 0) { vfx('banner', `Ronda ${s.round}`); sfx('round'); }
+   if (prevS.attackers.length && !s.attackers.length && prevS.round === s.round) report(prevS, s);
+   prev = [me.nexus, foe.nexus]; prevPlayed = s.p.map(p => p.played.length); lastRound = s.round; prevS = s;
+   prevHp = new Map(); lastBoard = [[], []];
+   s.p.forEach((p, i) => p.board.forEach(u => { seen.add(u.uid); prevHp.set(u.uid, [atkOf(u), curHp(u)]); lastBoard[i].push(u.uid); }));
+-  if (s.winner !== null && !ended) { ended = true; sfx(s.winner === 0 ? 'win' : 'lose'); if (s.winner === 0) chat.react('win'); else if (s.winner === 1) chat.react('lose'); }
++  if (s.winner !== null && !ended) { ended = true; sfx(s.winner === 0 ? 'win' : 'lose'); if (s.winner === 0) react('win'); else if (s.winner === 1) react('lose'); }
+   logv.innerHTML = log; chatEl.hidden = editing || !chatOpen;
+ }
+ function editor(): string {
+@@ -197,12 +206,22 @@ function editor(): string {
+ 
+ // ---------- Acciones ----------
+ function dispatch(a: Action) {
++  if (online) {
++    if (busy || online.busy) return;
++    const n = step(s, toView(a));                                 // validación local sobre la vista propia
++    if (n === s) { toast(a.type === 'block' ? 'Ese bloqueo no es válido (Elusivo/Temible/ya asignado)' : a.type === 'play' ? 'No puedes jugar eso ahora' : 'Acción no válida'); return; }
++    if (a.type === 'pass' || a.type === 'confirmBlocks') sfx('pass');
++    busy = true; sel.clear(); tgt = null; selAtk = null; render();
++    online.send(a).then(ok => { if (!ok) { busy = false; render(); } });
++    return;                                                       // el estado cambia cuando vuelve la jugada confirmada
++  }
+   const n = step(s, a);
+   if (n === s) { toast(a.type === 'block' ? 'Ese bloqueo no es válido (Elusivo/Temible/ya asignado)' : a.type === 'play' ? 'No puedes jugar eso ahora' : 'Acción no válida'); return; }
+   if (a.type === 'pass' || a.type === 'confirmBlocks') sfx('pass');
+   s = n; sel.clear(); tgt = null; selAtk = null; render(); loop();
+ }
+ function loop() {
++  if (online) return;
+   if (s.winner !== null || s.active !== 1 || s.phase === 'mulligan') return;
+   const gid = gameId;
+   setTimeout(() => {
+@@ -226,6 +245,8 @@ app.addEventListener('click', e => {
+   if (a === 'chat') { chatOpen = !chatOpen; sfx('click'); render(); }
+   else if (a === 'edit') { sfx('click'); editing = !editing; render(); }
+   else if (a === 'mute') { toggleMute(); sfx('click'); render(); }
++  else if (a === 'new' && online) { toast('Para otra partida online crea o únete a una sala nueva'); openOnlineMenu(menuApi()); }
++  else if (a === 'online') { sfx('click'); openOnlineMenu(menuApi()); }
+   else if (a === 'new') { sfx('click'); gameId++; busy = false; pend = null; selAtk = null; tgt = null; s = newS(); sel.clear(); mulSel.clear(); prev = [20, 20]; seen.clear(); prevPlayed = [0, 0]; lastRound = 0; prevHp.clear(); lastBoard = [[], []]; ended = false; prevS = s; render(); }
+   else if (a === 'reset') { resetSkins(); render(); }
+   else if (a === 'mul') { sfx('select'); mulSel.has(i) ? mulSel.delete(i) : mulSel.add(i); render(); }
+@@ -265,5 +286,43 @@ app.addEventListener('mouseover', e => {
+   else { const i = Number(el.dataset.i), id = s.p[0].hand[i]; if (id) { pv.innerHTML = card(id) + rules(id, CARDS[id].kw, i); pv.style.display = 'block'; } }
+ });
+ app.addEventListener('mouseleave', () => { pv.style.display = 'none'; });
++
++// ---------- Online: conexión con Firebase ----------
++type Fresh = { before: State; action: Action; seat: Seat };
++const queue: Fresh[] = []; let pumping = false;
++function freshUi(st: State) {
++  gameId++; busy = false; pend = null; selAtk = null; tgt = null; s = st; sel.clear(); mulSel.clear();
++  prev = [20, 20]; seen.clear(); prevPlayed = [0, 0]; lastRound = 0; prevHp.clear(); lastBoard = [[], []]; ended = false; prevS = s; render();
++}
++function pump() {
++  const m = queue.shift();
++  if (!m) { pumping = false; return; }
++  pumping = true;
++  const after = view(applyMove(m.before, m.seat, m.action), ME);
++  const apply = () => { pend = null; busy = false; s = after; sel.clear(); tgt = null; selAtk = null; render(); setTimeout(pump, 0); };
++  if (m.action.type === 'attack' && queue.length === 0) {         // animar solo la jugada más reciente (al reconectar no se reproducen todas)
++    const side = m.seat === ME ? 0 : 1; busy = true; pend = { side, idx: m.action.units }; sfx('attack');
++    vfx('banner small', `⚔ ${side ? 'El rival ataca' : 'Atacas'} con ${m.action.units.length}`); render(); setTimeout(apply, 900);
++  } else apply();
++}
++function menuApi() {
++  return {
++    inRoom: !!online,
++    create: async () => { startOnline(); const c = await online!.create(); setRoomTag(`Sala ${c} · esperando rival…`); },
++    join: async (code: string) => { startOnline(); try { await online!.join(code); } catch (e) { online = null; throw e; } },
++    leave: () => { online?.close(); online = null; ME = 0; queue.length = 0; setRoomTag(''); freshUi(newS()); loop(); },
++  };
++}
++function startOnline() {
++  if (online) return;
++  online = new Online({
++    onStatus: m => setRoomTag(m),
++    onReady: () => { ME = online!.seat; closeMenu(); freshUi(view(online!.g, ME)); chat.sys(`Sala ${online!.code}: juegas con ${facName(0)}.`); },
++    onMoves: (_g, fresh) => { queue.push(...fresh); if (!pumping) pump(); },
++  });
++}
++const savedRoom = Online.savedCode();
++if (savedRoom) { startOnline(); online!.resume(savedRoom).catch(() => { online = null; Online.clearSaved(); setRoomTag(''); }); }
++
+ render(); loop();
+ initFx();
