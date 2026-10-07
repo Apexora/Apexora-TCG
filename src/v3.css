@@ -1,6 +1,6 @@
 /* ===== v3: escenario en perspectiva, HUD de héroe, mano en abanico, botón circular de turno ===== */
 .stage{position:relative;display:block;max-width:none;margin:0;padding:0;height:calc(100vh - 58px);min-height:560px;overflow:hidden;--lh:calc((100vh - 60px)*.68/4 - 6px)}
-.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,#0000,#05030acc 80%),url(/img/arena.jpg) center/cover;opacity:.55;filter:saturate(1.15) contrast(1.05)}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,#0000,#05030acc 80%),url(/img/arena.webp) center/cover;opacity:.55;filter:saturate(1.15) contrast(1.05)}
 .stage.targeting{cursor:crosshair}
 .stage.targeting::after{content:"";position:absolute;inset:0;background:radial-gradient(circle at 50% 40%,transparent 35%,#000b);pointer-events:none;z-index:4}
 .plane-wrap{position:absolute;left:50%;top:2.5%;width:min(1240px,74vw);height:68%;transform:translateX(-50%);perspective:1500px;z-index:3}

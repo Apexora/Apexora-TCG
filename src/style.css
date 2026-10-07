@@ -97,7 +97,7 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;ba
 background:
  url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .2 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"),
  repeating-linear-gradient(0deg,#0004 0 2px,transparent 2px 110px),repeating-linear-gradient(90deg,#0004 0 2px,transparent 2px 110px),
- url(/img/arena.jpg) center/cover,
+ url(/img/arena.webp) center/cover,
  linear-gradient(180deg,#3a1218 0%,#241a2c 46%,#241f2e 54%,#4a3a14 100%)}
 .arena::before{content:"";position:absolute;left:50%;top:50%;width:min(78vh,700px);aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;pointer-events:none;border:2px solid #ffffff14;
 background:radial-gradient(circle,transparent 56%,#e8c46a30 57%,transparent 59%),radial-gradient(circle,transparent 68%,#c1121f30 69%,transparent 72%),radial-gradient(circle,#ffffff0a,transparent 60%),
@@ -240,7 +240,7 @@ h1 small{font-family:Inter,system-ui,sans-serif;font-size:9px;letter-spacing:.38
 main{max-width:1740px;padding:clamp(12px,2vw,28px) clamp(12px,2.5vw,42px) 32px}
 .table{gap:14px}.arena{
   isolation:isolate;gap:12px;padding:clamp(14px,2vw,30px);border:1px solid #f1d58a4a;border-radius:24px;
-  background:linear-gradient(135deg,#16121dba,#0b0a10c9),url(/img/arena.jpg) center/cover,linear-gradient(180deg,#251622,#15121d 50%,#201b13);
+  background:linear-gradient(135deg,#16121dba,#0b0a10c9),url(/img/arena.webp) center/cover,linear-gradient(180deg,#251622,#15121d 50%,#201b13);
   box-shadow:0 26px 80px #0009,inset 0 1px 0 #fff1,inset 0 0 0 5px #08070a70,inset 0 0 100px #000d;
 }
 .arena::before{

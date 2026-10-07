@@ -89,7 +89,7 @@ function spot(id: string, side: number, u?: Unit) {
 function portrait(p: Player, i: number, label: string): string {
   const fl = p.nexus < prev[i] ? 'hit' : p.nexus > prev[i] ? 'heal' : '', d = p.nexus - prev[i];
   const gems = Array.from({ length: p.maxMana }, (_, k) => `<u class="${k < p.mana ? 'on' : ''}"></u>`).join('');
-  return `<div class="pt ${i ? 'foe' : 'me'}"><div class="ava"><span>${i ? '☾' : '☀'}</span><img src="${import.meta.env.BASE_URL}img/avatar_${i ? 'umb' : 'lum'}.png" onerror="this.remove()"></div>
+  return `<div class="pt ${i ? 'foe' : 'me'}"><div class="ava"><span>${i ? '☾' : '☀'}</span><img src="${import.meta.env.BASE_URL}img/avatar_${i ? 'umb' : 'lum'}.webp" onerror="this.remove()"></div>
     <div class="orb ${fl}">${Math.max(0, p.nexus)}${d ? `<span class="fx">${d > 0 ? '+' : ''}${d}</span>` : ''}</div>
     <div class="pname">${label}</div><div class="pmana">${gems}<span class="sm">${[0, 1, 2].map(k => `<i class="${k < p.spell ? 'on' : ''}"></i>`).join('')}</span></div></div>`;
 }
