@@ -1,0 +1,30 @@
+declare const process: { exit(n: number): never };
+import { DECKS } from '../data/cards';
+import { atkOf, canBlock, newGame, step } from '../engine/engine';
+import type { State, Unit } from '../engine/types';
+let fails = 0; const ok = (c: boolean, m: string) => { if (!c) { fails++; console.log('✗ ' + m); } };
+const U = (uid: number, card: string, atk: number, hp: number, kw: Unit['kw'] = []): Unit => ({ uid, card, atk, hp, dmg: 0, kw, ta: 0, th: 0 });
+const fresh = (): State => { const s = step(newGame([DECKS.Luminarae, DECKS.Umbra], 7), { type: 'mulligan', idx: [] }); s.p.forEach(p => { p.board = []; p.mana = 10; }); return s; };
+let s = newGame([DECKS.Luminarae, DECKS.Umbra], 1);
+ok(s.phase === 'mulligan' && s.p[0].hand.length === 4 && s.p[0].deck.length + 4 === 40, 'mazo 40, mano 4, mulligan');
+s = step(s, { type: 'mulligan', idx: [0, 1] });
+ok(s.phase === 'main' && s.round === 1 && s.p[0].hand.length === 5 && s.p[s.token].maxMana === 1, 'ronda 1: 1 gema, roba 1');
+ok(s.tok[s.token] && !s.tok[1 - s.token], 'ficha de ataque al jugador activo');
+// rondas: dos pases seguidos cierran la ronda; maná sobrante pasa a maná de hechizo (máx 3)
+let t = s; const a0 = t.active; t = step(t, { type: 'pass' }); t = step(t, { type: 'pass' });
+ok(t.round === 2 && t.token !== s.token && t.p[0].spell === 1 && t.p[0].maxMana === 2, 'fin de ronda, alterna ficha, maná de hechizo');
+void a0;
+// bloqueo y Ataque rápido / Arrollar / Barrera
+let g = fresh(); const at = g.token, df = 1 - at as 0 | 1;
+g.p[at].board = [U(1, 'umb_jinete', 5, 3, ['arrollar', 'rapido'])]; g.p[df].board = [U(2, 'lum_centinela', 2, 3)];
+g = step(g, { type: 'attack', units: [0] }); ok(g.phase === 'block', 'ataque abre fase de bloqueo');
+g = step(g, { type: 'block', attacker: 0, blocker: 0 }); g = step(g, { type: 'confirmBlocks' }); g = step(g, { type: 'pass' });
+ok(g.p[df].board.length === 0 && g.p[at].board[0].dmg === 0 && g.p[df].nexus === 18, 'rápido mata antes; arrollar pasa 2 al Nexo');
+let e = fresh(); e.p[e.token].board = [U(1, 'lum_halcon', 3, 1, ['elusivo'])]; e.p[1 - e.token].board = [U(2, 'lum_centinela', 2, 5)];
+ok(!canBlock(e.p[e.token].board[0], e.p[1 - e.token].board[0]), 'elusivo no es bloqueable');
+let r = fresh(); r.p[r.token].board = [U(1, 'lum_acolita', 3, 3, ['barrera'])]; r.p[1 - r.token].board = [U(2, 'umb_sombra', 2, 5)];
+r = step(r, { type: 'attack', units: [0] }); r = step(r, { type: 'block', attacker: 0, blocker: 0 }); r = step(r, { type: 'confirmBlocks' }); r = step(r, { type: 'pass' });
+ok(r.p[r.token].board[0].dmg === 0 && !r.p[r.token].board[0].kw.includes('barrera'), 'barrera niega el primer daño');
+ok(atkOf(U(1, 'x', 2, 2)) === 2, 'poder base');
+console.log(fails ? `${fails} fallo(s)` : 'Reglas v3 verificadas: mulligan, rondas, maná de hechizo, bloqueo, rápido, arrollar, elusivo, barrera.');
+process.exit(fails ? 1 : 0);

@@ -1,0 +1,89 @@
+/* ===== Capa "Steam 2026": va después de style.css y lo sobrescribe ===== */
+:root{--gold:#ffcf6e;--teal:#3de8d0;--vio:#9a6bff;--ember:#ff6a3d;--ui:Oxanium,Inter,sans-serif;--panel:linear-gradient(160deg,#17142bee,#0c0a18f2);--edge:#ffffff1c}
+html{scrollbar-width:thin;scrollbar-color:#5b4a8a #0a0814}
+body{font-family:var(--ui);background:radial-gradient(120% 80% at 50% -10%,#2b1f58 0,#120d26 45%,#06050c 100%) fixed;overflow-x:hidden}
+#app{position:relative;z-index:2}
+#embers{position:fixed;inset:0;z-index:1;pointer-events:none;mix-blend-mode:screen}
+#glow{position:fixed;left:0;top:0;width:320px;height:320px;border-radius:50%;pointer-events:none;z-index:3;background:radial-gradient(circle,#ffcf6e1f,#9a6bff12 45%,transparent 70%);mix-blend-mode:screen}
+body::after{content:"";position:fixed;inset:0;z-index:50;pointer-events:none;background:radial-gradient(ellipse at center,transparent 55%,#000b 100%),url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='.5'/%3E%3C/svg%3E");background-blend-mode:overlay;opacity:.5;mix-blend-mode:soft-light}
+/* Cabecera estilo HUD */
+header{background:linear-gradient(#0a0814f2,#0a0814b0);border-bottom:1px solid transparent;border-image:linear-gradient(90deg,transparent,var(--gold),var(--vio),transparent) 1;padding:8px 24px}
+h1{font:800 22px Cinzel,serif;background:linear-gradient(90deg,#fff4cf,var(--gold),#ff9d5c);-webkit-background-clip:text;background-clip:text;color:transparent;letter-spacing:.14em;filter:drop-shadow(0 0 12px #ffcf6e66)}
+h1 small{-webkit-text-fill-color:var(--teal);letter-spacing:.35em}
+.phase-chip,.rd{font:600 12px var(--ui);letter-spacing:.14em;text-transform:uppercase;padding:5px 12px;clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%);background:#ffffff14}
+.phase-chip{background:linear-gradient(90deg,#3de8d033,#9a6bff33);color:#d9fffa}
+.ghost{background:#ffffff0d;border:1px solid var(--edge);border-radius:4px;font-family:var(--ui);letter-spacing:.06em;transition:.2s}
+.ghost:hover{background:#3de8d01f;border-color:var(--teal);box-shadow:0 0 18px #3de8d044;transform:translateY(-1px)}
+/* Botones angulares con barrido de luz */
+.btn{font-family:var(--ui);letter-spacing:.16em;text-transform:uppercase;font-weight:800;border-radius:0;padding:12px 34px;clip-path:polygon(14px 0,100% 0,calc(100% - 14px) 100%,0 100%);background:linear-gradient(#ffe39a,#d19a2f 60%,#9a6a14);box-shadow:none;position:relative;overflow:hidden;transition:.2s}
+.btn::before{content:"";position:absolute;inset:0;background:linear-gradient(110deg,transparent 35%,#fff9 50%,transparent 65%);transform:translateX(-120%);transition:transform .6s}
+.btn:hover::before{transform:translateX(120%)}.btn:hover{transform:translateY(-2px) scale(1.04);filter:drop-shadow(0 0 16px #ffcf6e99)}
+.btn:disabled{filter:grayscale(1) brightness(.5);cursor:not-allowed}
+.atk-btn{background:linear-gradient(#ff9a72,#d6392b 60%,#7d0f12);color:#fff;animation:pulseAtk 1.6s infinite}
+@keyframes pulseAtk{50%{filter:drop-shadow(0 0 18px #ff4a2acc)}}
+/* Mesa: arena con profundidad */
+.arena{border-radius:18px;box-shadow:0 30px 80px #000c,inset 0 0 120px #000a,0 0 0 1px var(--edge);perspective:1400px}
+.arena .board{background:linear-gradient(#ffffff06,#ffffff02);border:1px solid #ffffff12;border-radius:16px;box-shadow:inset 0 0 40px #0008}
+.slot{border-radius:12px;border:1px dashed #ffffff22;background:radial-gradient(circle,#ffffff0a,transparent 70%)}
+.pill{font-family:var(--ui);letter-spacing:.1em;border:1px solid var(--edge);backdrop-filter:blur(8px)}
+.pill.go{background:linear-gradient(90deg,#14705a,#1a9c78);box-shadow:0 0 22px #3de8d088;animation:go 1.8s ease-in-out infinite}
+@keyframes go{50%{box-shadow:0 0 36px #3de8d0cc}}
+/* HUD de nexo: orbe vivo */
+.orb{font-family:var(--ui);border:2px solid #fff8;position:relative;overflow:hidden;animation:orb 3.4s ease-in-out infinite}
+.orb::after{content:"";position:absolute;inset:-30%;background:conic-gradient(from 0deg,transparent,#ffffff55,transparent 40%);animation:spin 4s linear infinite;mix-blend-mode:overlay}
+@keyframes orb{50%{filter:brightness(1.18) saturate(1.2)}}@keyframes spin{to{transform:rotate(360deg)}}
+.hud .bar{height:10px;border-radius:2px;background:#000a;box-shadow:inset 0 0 0 1px #ffffff1a;overflow:hidden}
+.hud .bar i{transition:width .9s cubic-bezier(.2,.8,.2,1);box-shadow:0 0 14px currentColor;background-image:linear-gradient(90deg,#ffffff00,#ffffff66,#ffffff00);background-size:60px 100%;animation:sheen 2.4s linear infinite}
+@keyframes sheen{to{background-position:60px 0}}
+.mana u{transition:.3s;transform:rotate(45deg)}.mana u.on{box-shadow:0 0 12px #3de8d0,0 0 3px #fff inset;animation:gem 2.2s ease-in-out infinite}
+@keyframes gem{50%{filter:brightness(1.5)}}
+/* Cartas: foil holográfico que sigue al cursor */
+.card{transition:transform .28s cubic-bezier(.2,.9,.3,1.2),box-shadow .28s,filter .28s;--mx:50%;--my:50%;--ang:0deg;will-change:transform}
+.card::before{content:"";position:absolute;inset:0;z-index:6;pointer-events:none;border-radius:inherit;opacity:0;transition:opacity .25s;mix-blend-mode:color-dodge;
+  background:radial-gradient(circle at var(--mx) var(--my),#fff9,transparent 38%),linear-gradient(calc(115deg + var(--ang)),transparent 20%,#ff6ad566 35%,#6affe866 48%,#ffe96a66 60%,#8a6aff66 72%,transparent 85%);background-size:100% 100%,220% 220%;background-position:0 0,var(--mx) var(--my)}
+.card:hover::before,.card.sel::before{opacity:.85}
+.hand .card:hover{transform:translateY(-34px) scale(1.14) rotate(calc(var(--ang) / 14));z-index:30;box-shadow:0 30px 50px #000d,0 0 40px #9a6bff66}
+.hand .card.ok{box-shadow:0 0 0 2px #3de8d0aa,0 0 22px #3de8d066;animation:okp 2.2s ease-in-out infinite}
+@keyframes okp{50%{box-shadow:0 0 0 2px #3de8d0,0 0 34px #3de8d0aa}}
+.hand .card.no{filter:saturate(.45) brightness(.7)}
+.lum.card{box-shadow:0 10px 24px #000a,0 0 0 1px #ffd98a66}.umb.card{box-shadow:0 10px 24px #000a,0 0 0 1px #b27dff66}
+.board .card:hover{transform:translateY(-6px) scale(1.07);z-index:20}
+.card.sel{transform:translateY(-12px) scale(1.08);box-shadow:0 0 0 2px var(--gold),0 0 36px #ffcf6eaa}
+.card.can{animation:can 1.6s ease-in-out infinite}@keyframes can{50%{box-shadow:0 0 0 2px #ffcf6e,0 0 28px #ffcf6e99}}
+.card.enter{animation:enter .7s cubic-bezier(.15,.9,.2,1.15) both}
+@keyframes enter{0%{transform:translateY(-120px) scale(1.7) rotateX(50deg);opacity:0;filter:brightness(3) blur(6px)}60%{filter:brightness(1.8)}100%{transform:none;opacity:1;filter:none}}
+.card.hurt{animation:hurtc .6s}@keyframes hurtc{15%{transform:translateX(-8px) rotate(-3deg);filter:brightness(2.2) hue-rotate(-30deg)}35%{transform:translateX(8px) rotate(3deg)}60%{transform:translateX(-4px)}}
+.card .fx,.orb .fx{font:800 26px var(--ui);text-shadow:0 0 12px currentColor,0 2px 0 #000}
+.card.attacking.up{animation:atkUp 1.1s ease-in-out}.card.attacking.down{animation:atkDn 1.1s ease-in-out}
+@keyframes atkUp{40%{transform:translateY(-70px) scale(1.2);filter:drop-shadow(0 0 24px #ffcf6e) brightness(1.4)}}
+@keyframes atkDn{40%{transform:translateY(70px) scale(1.2);filter:drop-shadow(0 0 24px #b27dff) brightness(1.4)}}
+.card.dying{animation:die .9s forwards}@keyframes die{to{opacity:0;transform:scale(.6) rotate(8deg);filter:grayscale(1) blur(6px) brightness(2)}}
+/* VFX de pantalla */
+.shk-soft{animation:shks .35s}.shk-hard{animation:shkh .6s}
+@keyframes shks{20%{transform:translate(-4px,3px)}40%{transform:translate(5px,-3px)}60%{transform:translate(-3px,-2px)}80%{transform:translate(2px,2px)}}
+@keyframes shkh{10%{transform:translate(-14px,8px) rotate(-.6deg)}25%{transform:translate(12px,-9px) rotate(.5deg)}45%{transform:translate(-9px,6px)}65%{transform:translate(6px,-4px)}85%{transform:translate(-3px,2px)}}
+.flash{position:fixed;inset:0;z-index:60;pointer-events:none;animation:fl .7s forwards}@keyframes fl{from{opacity:1}to{opacity:0}}
+.vfx.banner{font-family:Cinzel,serif;letter-spacing:.3em;background:linear-gradient(90deg,transparent,#000c 20%,#000c 80%,transparent);border-top:1px solid var(--gold);border-bottom:1px solid var(--gold);text-shadow:0 0 30px var(--gold);padding:18px 0;width:100vw;left:0;text-align:center;animation:ban 1.4s cubic-bezier(.2,.8,.2,1) forwards}
+@keyframes ban{0%{clip-path:inset(0 50% 0 50%);opacity:0}25%,75%{clip-path:inset(0);opacity:1}100%{clip-path:inset(0 0 0 100%);opacity:0}}
+.vfx.report{font-family:var(--ui);border:1px solid var(--edge);background:var(--panel);backdrop-filter:blur(10px)}
+.vfx.spot .card{box-shadow:0 0 90px #9a6bffcc,0 0 0 2px var(--gold)}
+/* Chat / registro / editor */
+.chat,.stacktray,.blocksummary,.preview{background:var(--panel);border:1px solid var(--edge);backdrop-filter:blur(14px);box-shadow:0 20px 50px #000a}
+.chat .tabs button.on{box-shadow:inset 0 -2px var(--teal);color:var(--teal)}
+.over{backdrop-filter:blur(10px) saturate(1.3);background:radial-gradient(circle,#1a0f3acc,#000e)}
+.over h2{font:800 clamp(48px,9vw,120px) Cinzel,serif;letter-spacing:.2em;background:linear-gradient(#fff,var(--gold),#a35a12);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 0 40px #ffcf6e99);animation:win 1.2s cubic-bezier(.2,.9,.2,1.2)}
+@keyframes win{from{transform:scale(2.4);opacity:0;letter-spacing:.8em}}
+/* Pantalla de título */
+#title{position:fixed;inset:0;z-index:100;display:grid;place-items:center;text-align:center;background:radial-gradient(ellipse at 50% 35%,#34226e 0,#0b0818 55%,#030208 100%);transition:opacity .9s,transform .9s,filter .9s}
+#title.out{opacity:0;transform:scale(1.25);filter:blur(12px);pointer-events:none}
+.t-rays{position:absolute;inset:-50%;background:repeating-conic-gradient(from 0deg,#ffcf6e14 0 4deg,transparent 4deg 14deg);animation:spin 70s linear infinite;mask:radial-gradient(circle,#000,transparent 60%)}
+.t-in{position:relative}.t-kicker{font:600 13px var(--ui);letter-spacing:.7em;color:var(--teal);margin:0 0 6px;animation:up 1s .1s both}
+#title h1{font:800 clamp(56px,13vw,170px)/.9 Cinzel,serif;margin:0;letter-spacing:.08em;animation:up 1s .25s both,tglow 3s ease-in-out infinite}
+#title h1 span{display:block;font-size:.34em;letter-spacing:1.1em;margin-top:.3em;-webkit-text-fill-color:var(--vio);padding-left:1.1em}
+@keyframes tglow{50%{filter:drop-shadow(0 0 40px #ffcf6eaa)}}@keyframes up{from{opacity:0;transform:translateY(30px)}}
+.t-fac{display:flex;gap:22px;justify-content:center;align-items:center;margin:34px 0;font:700 15px var(--ui);letter-spacing:.3em;animation:up 1s .5s both}
+.t-fac .l{color:var(--gold);text-shadow:0 0 14px var(--gold)}.t-fac .u{color:#c79bff;text-shadow:0 0 14px var(--vio)}.t-fac i{color:#fff6;font-style:normal;font-size:12px}
+.t-go{font:800 17px var(--ui);letter-spacing:.35em;color:#1d1304;background:linear-gradient(#ffe39a,#d19a2f);padding:18px 54px;clip-path:polygon(18px 0,100% 0,calc(100% - 18px) 100%,0 100%);animation:up 1s .8s both,pulseGo 2s 1.8s infinite;transition:.2s}
+.t-go:hover{transform:scale(1.08);filter:drop-shadow(0 0 24px #ffcf6e)}@keyframes pulseGo{50%{filter:drop-shadow(0 0 20px #ffcf6eaa)}}
+.t-hint{color:#fff5;font-size:12px;letter-spacing:.2em;margin-top:22px;animation:up 1s 1.1s both}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}#embers,#glow{display:none}}
