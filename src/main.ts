@@ -203,6 +203,7 @@ function render() {
 function dispatch(a: Action) {
   if (online) {
     if (busy || online.busy) return;
+    if (!online.isReady) { toast('Esperando al rival… Para jugar contra la IA, sal de la sala desde 🌐 Online'); return; }
     const n = step(s, toView(a));                                 // validación local sobre la vista propia
     if (n === s) { toast(a.type === 'block' ? 'Ese bloqueo no es válido (Elusivo/Temible/ya asignado)' : a.type === 'play' ? 'No puedes jugar eso ahora' : 'Acción no válida'); return; }
     if (a.type === 'pass' || a.type === 'confirmBlocks') sfx('pass');
