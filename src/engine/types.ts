@@ -15,7 +15,9 @@ export interface State {
   p: [Player, Player]; round: number; token: 0 | 1; active: 0 | 1; phase: 'mulligan' | 'main' | 'block' | 'stack';
   passes: number; winner: null | 0 | 1 | -1; seed: number; uid: number; log: string[];
   stack: StackItem[]; attackers: number[]; blocks: Record<string, number>; forced: number[]; tok: [boolean, boolean]; resumePhase: 'main' | 'block';
+  /** Online: qué jugadores ya hicieron su mulligan (contra la IA no se usa). */
+  mull: [boolean, boolean];
 }
 export type Action =
   | { type: 'play'; hand: number; target?: number } | { type: 'pass' } | { type: 'attack'; units: number[] }
-  | { type: 'block'; attacker: number; blocker: number } | { type: 'confirmBlocks' } | { type: 'mulligan'; idx: number[] };
+  | { type: 'block'; attacker: number; blocker: number } | { type: 'confirmBlocks' } | { type: 'mulligan'; idx: number[]; player?: 0 | 1 };

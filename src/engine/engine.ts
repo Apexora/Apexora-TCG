@@ -40,7 +40,7 @@ export function canBlock(a: Unit, b: Unit): boolean {
 
 export function newGame(decks: [string[], string[]], seed: number): State {
   const mk = (d: string[]) => ({ nexus: 20, deck: [...d], hand: [] as string[], board: [] as Unit[], mana: 0, maxMana: 0, spell: 0, played: [] as string[] });
-  const s: State = { p: [mk(decks[0]), mk(decks[1])], round: 0, token: 0, active: 0, phase: 'mulligan', passes: 0, winner: null, seed, uid: 0, log: [], stack: [], attackers: [], blocks: {}, forced: [], tok: [false, false], resumePhase: 'main' };
+  const s: State = { p: [mk(decks[0]), mk(decks[1])], round: 0, token: 0, active: 0, phase: 'mulligan', passes: 0, winner: null, seed, uid: 0, log: [], stack: [], attackers: [], blocks: {}, forced: [], tok: [false, false], resumePhase: 'main', mull: [false, false] };
   s.p.forEach(p => shuffle(s, p.deck)); draw(s, 0, 4); draw(s, 1, 4);
   s.token = rand(s) < 0.5 ? 0 : 1; // startRound lo invierte
   return s;
@@ -186,6 +186,12 @@ export function step(s0: State, a: Action): State {
   const s = structuredClone(s0), i = s.active, p = s.p[i], foe = s.p[o(i)];
   if (a.type === 'mulligan') {
     if (s.phase !== 'mulligan') return s0;
+    if (a.player !== undefined) { // online: cada jugador hace el suyo; la ronda 1 arranca cuando ambos terminan
+      if ((a.player !== 0 && a.player !== 1) || s.mull[a.player] || !Array.isArray(a.idx)) return s0;
+      mulligan(s, a.player, a.idx); s.mull[a.player] = true;
+      if (s.mull[0] && s.mull[1]) startRound(s);
+      return s;
+    }
     mulligan(s, 0, a.idx);
     mulligan(s, 1, s.p[1].hand.map((id, k) => (CARDS[id].cost >= 4 ? k : -1)).filter(k => k >= 0)); // la IA cambia cartas caras
     startRound(s); return s;
