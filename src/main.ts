@@ -8,7 +8,7 @@ import { atkOf, canPlay, curHp, newGame, step, targetKind } from './engine/engin
 import type { Action, Keyword, Player, SpellSpeed, State, Unit } from './engine/types';
 import { imageOf, nameOf } from './ui/skins';
 import { LocalChannel } from './ui/chat';
-import { isMuted, setTension, sfx, toggleMute } from './ui/sound';
+import { isMuted, setTension, sfx, sfxCard, toggleMute } from './ui/sound';
 import { Online } from './net/online';
 import { applyMove, toView, view, type Seat } from './net/sync';
 import { closeMenu, menuStatus, openOnlineMenu, setRoomTag } from './net/onlineUi';
@@ -215,7 +215,7 @@ function render() {
     (s.winner !== null ? `<div class="over"><h2>${msg}</h2><button class="btn" data-a="new">Jugar de nuevo</button></div>` : '');
   // --- efectos y sonidos por transición de estado ---
   const fresh = s.p.some(p => p.board.some(u => !seen.has(u.uid))), gone = lastBoard.some(l => l.some(uid => !s.p.some(p => p.board.some(u => u.uid === uid))));
-  if (fresh) sfx('summon'); if (gone) sfx('death');
+  if (fresh) s.p.flatMap(p => p.board.filter(u => !seen.has(u.uid)).map(u => u.card)).forEach((id, k) => setTimeout(() => sfxCard(id), k * 170)); if (gone) sfx('death');
   s.p.forEach((p, i) => p.board.filter(u => !seen.has(u.uid)).forEach(u => (i ? reader(u.card, 1, u) : spot(u.card, 0, u))));
   if (me.nexus < prev[0]) vfx('vhit'); else if (me.nexus > prev[0]) vfx('vheal');
   if (me.nexus < prev[0] || foe.nexus < prev[1]) sfx('hurt'); if (me.nexus > prev[0] || foe.nexus > prev[1]) sfx('heal');

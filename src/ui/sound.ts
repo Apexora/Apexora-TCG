@@ -1,6 +1,6 @@
 // Motor de audio v3.1: sintetizado en tiempo real, sin archivos. Cadena: EQ → compresor → master, con reverb de sala oscura (IR generada),
 // eco con filtro, panorama estéreo, campanas FM, arpas, gongs, tambores, saturación, y música ambiental generativa que reacciona a la tensión.
-// Para usar tus propios audios: public/sfx/<nombre>.mp3 (click hover select pass summon spell_lum spell_umb attack hurt heal death round win lose msg start)
+// Para usar tus propios audios: public/sfx/<nombre>.mp3 (click hover select pass summon summon_lum summon_umb spell_lum spell_umb attack hurt heal death round win lose msg start)
 let ctx: AudioContext, sfxBus: GainNode, musicBus: GainNode, master: GainNode, drive: WaveShaperNode, booted = false;
 let muted = false, musicOn = false, tension = 0, tensionNow = 0, timer = 0, windStop: (() => void) | null = null, barIdx = 0, nextBar = 0;
 try { muted = localStorage.getItem('cartas-mute') === '1'; } catch { /* sin almacenamiento */ }
@@ -93,6 +93,17 @@ const R: Record<string, () => void> = {
   pass: () => { const t = T0(); noise(t, 0.35, { f0: 600, f1: 200, q: 1.2, vol: 0.09, att: 0.08 }); voice(mf(50), t, 0.3, { vol: 0.08, slide: -5 }); },
   summon: () => { const t = T0(); tom(t, 48, 0.9); noise(t, 0.5, { type: 'lowpass', f0: 3000, f1: 150, q: 0.7, vol: 0.25 });
     [81, 86, 90, 93].forEach((n, k) => fm(mf(n), t + 0.05 + k * 0.05, 1.2, { vol: 0.05, ratio: 3, idx: 1.5, pan: (k - 1.5) * 0.3 })); voice(mf(38), t, 0.9, { type: 'sawtooth', vol: 0.08, lp: 1500, lpEnd: 150, det: 12, att: 0.02 }); },
+  // Invocación de unidades (no hechizos): Luminarae = golpe grave + ascenso radiante; Umbra = caída sub-grave + rugido oscuro
+  summon_lum: () => { const t = T0(); tom(t, 52, 0.85);
+    noise(t, 0.75, { type: 'bandpass', f0: 400, f1: 6500, q: 0.8, vol: 0.12, att: 0.4 });
+    voice(mf(45), t + 0.12, 1.3, { type: 'triangle', vol: 0.11, lp: 1800, att: 0.03 });
+    [69, 73, 76, 81, 85].forEach((n, k) => fm(mf(n), t + 0.2 + k * 0.06, 1.7, { vol: 0.06, ratio: 2, idx: 1.4, pan: (k - 2) * 0.25 }));
+    fm(mf(93), t + 0.45, 2.2, { vol: 0.045, ratio: 3.01, idx: 1 }); },
+  summon_umb: () => { const t = T0();
+    voice(mf(33), t, 1.4, { type: 'sawtooth', vol: 0.16, slide: -9, lp: 1800, lpEnd: 90, det: 14, att: 0.02 }); tom(t, 40, 1);
+    noise(t, 0.9, { type: 'lowpass', f0: 2200, f1: 90, q: 0.7, vol: 0.22 });
+    noise(t + 0.1, 0.8, { type: 'bandpass', f0: 300, f1: 1500, q: 2, vol: 0.08, att: 0.3 });
+    fm(mf(58), t + 0.05, 1.9, { vol: 0.06, ratio: 1.41, idx: 3 }); fm(mf(65), t + 0.12, 1.7, { vol: 0.05, ratio: 1.41, idx: 2.5, pan: 0.3 }); },
   spell_lum: () => { const t = T0();
     [74, 76, 78, 81, 83, 86, 90].forEach((n, k) => voice(mf(n), t + k * 0.055, 1.3, { type: 'triangle', vol: 0.07, pan: -0.5 + k * 0.16 }));
     fm(mf(93), t + 0.4, 2.2, { vol: 0.06, ratio: 2.76, idx: 1 }); noise(t, 1.2, { type: 'highpass', f0: 5000, f1: 9000, vol: 0.05, att: 0.5 }); },
@@ -112,7 +123,66 @@ const R: Record<string, () => void> = {
 const files = new Map<string, string | null>();
 function probe(name: string) {
   if (files.has(name)) return; files.set(name, null);
-  fetch(`/sfx/${name}.mp3`).then(r => { if (r.ok && (r.headers.get('content-type') || '').startsWith('audio')) files.set(name, r.url); }).catch(() => { /* */ });
+  fetch(`${import.meta.env.BASE_URL}sfx/${name}.mp3`).then(r => { if (r.ok && (r.headers.get('content-type') || '').startsWith('audio')) files.set(name, r.url); }).catch(() => { /* */ });
+}
+// ---------- Sonido propio de cada unidad al invocarla ----------
+// Piezas pequeñas que se combinan en una receta distinta por carta (tono, timbre y ritmo según su personaje).
+const bell = (t: number, ns: number[], gap = 0.07, vol = 0.06, ratio = 2, idx = 1.4) => ns.forEach((n, k) => fm(mf(n), t + k * gap, 1.5, { vol, ratio, idx, pan: (k - (ns.length - 1) / 2) * 0.25 }));
+const harp = (t: number, ns: number[], gap = 0.06, vol = 0.07) => ns.forEach((n, k) => voice(mf(n), t + k * gap, 1.1, { type: 'triangle', vol, pan: (k - (ns.length - 1) / 2) * 0.2 }));
+const horn = (t: number, n: number, dur = 0.9, vol = 0.1) => voice(mf(n), t, dur, { type: 'sawtooth', vol, lp: 500, lpEnd: 2600, att: 0.12, det: 8 });
+const growl = (t: number, n: number, dur = 1, vol = 0.14, slide = -8) => voice(mf(n), t, dur, { type: 'sawtooth', vol, slide, lp: 1800, lpEnd: 90, det: 14, att: 0.02 });
+const howl = (t: number, n: number, dur = 1.2, vol = 0.1) => voice(mf(n), t, dur, { type: 'sawtooth', vol, slide: 5, lp: 1500, lpEnd: 600, vib: 25, att: 0.2 });
+const choir = (t: number, ns: number[], dur = 1.6, vol = 0.04) => ns.forEach((n, k) => voice(mf(n), t, dur, { type: 'sawtooth', vol, pad: true, att: 0.5, rel: 0.8, lp: 1400, vib: 12, det: 6, pan: (k - (ns.length - 1) / 2) * 0.3 }));
+const whoosh = (t: number, f0: number, f1: number, dur = 0.6, vol = 0.12, att = 0.3) => noise(t, dur, { type: 'bandpass', f0, f1, q: 0.9, vol, att });
+const hiss = (t: number, dur = 0.5, vol = 0.08) => noise(t, dur, { type: 'highpass', f0: 5000, f1: 9000, vol, att: 0.1 });
+const rumble = (t: number, dur = 1, vol = 0.2) => noise(t, dur, { type: 'lowpass', f0: 900, f1: 80, q: 0.7, vol, att: 0.06 });
+const clang = (t: number, n: number, vol = 0.07) => { fm(mf(n), t, 1.6, { vol, ratio: 1.41, idx: 3 }); fm(mf(n + 7), t + 0.02, 1.3, { vol: vol * 0.7, ratio: 2.76, idx: 2 }); };
+const clicks = (t: number, c: number, gap = 0.05, vol = 0.1) => { for (let i = 0; i < c; i++) noise(t + i * gap, 0.04, { type: 'highpass', f0: 3000, f1: 6000, vol, pan: (i % 2 ? 0.3 : -0.3) }); };
+const flutter = (t: number, c: number, gap = 0.05, vol = 0.09) => { for (let i = 0; i < c; i++) noise(t + i * gap, 0.09, { type: 'bandpass', f0: 1500, f1: 600, q: 1, vol, att: 0.02, pan: (i % 2 ? 0.4 : -0.4) }); };
+const UNIT: Record<string, (t: number) => void> = {
+  // Luminarae
+  lum_acolita: t => { bell(t, [84, 88, 91], 0.08, 0.05); harp(t + 0.05, [76, 79], 0.1, 0.05); },
+  lum_vigia: t => { horn(t, 57, 0.5, 0.08); bell(t + 0.2, [88], 0.1, 0.05); tom(t, 55, 0.4); },
+  lum_centinela: t => { clang(t, 62); clang(t + 0.1, 69, 0.05); tom(t, 50, 0.7); },
+  lum_portador: t => { harp(t, [72, 76, 79, 84], 0.07); whoosh(t, 800, 4000, 0.5, 0.08); },
+  lum_halcon: t => { whoosh(t, 3000, 800, 0.4, 0.12, 0.05); flutter(t + 0.05, 5, 0.04); bell(t + 0.3, [96], 0.1, 0.05); },
+  lum_novicia: t => { choir(t, [69, 72, 76], 1.2); bell(t + 0.2, [81], 0.1, 0.05); },
+  lum_sanadora: t => { harp(t, [67, 71, 74, 79, 83], 0.08); choir(t, [67, 74], 1.5); },
+  lum_vidente: t => { bell(t, [88, 93, 98], 0.12); whoosh(t, 2000, 6000, 0.7, 0.06, 0.4); },
+  lum_oraculo: t => { choir(t, [62, 69, 74], 1.7); bell(t + 0.2, [86, 90], 0.15); hiss(t, 0.6, 0.05); },
+  lum_paladin: t => { horn(t, 50, 0.9, 0.12); clang(t + 0.05, 67); flutter(t + 0.1, 6, 0.05, 0.07); },
+  lum_heraldo: t => { horn(t, 62, 0.8); horn(t + 0.15, 69, 0.8); bell(t + 0.3, [93], 0.1); },
+  lum_coloso: t => { tom(t, 43, 1); clang(t, 38, 0.09); choir(t, [50, 57], 1.6); tom(t + 0.2, 40, 0.7); },
+  lum_lider: t => { horn(t, 55, 0.5); horn(t + 0.25, 62, 0.5); horn(t + 0.5, 67, 0.9, 0.12); clang(t + 0.5, 74); tom(t + 0.5, 48, 0.8); },
+  lum_serafin: t => { flutter(t, 10, 0.045); choir(t, [74, 81, 86, 93], 2); bell(t + 0.3, [98, 105], 0.15); },
+  lum_arcangel: t => { tom(t, 40, 1); horn(t, 45, 1.4, 0.14); choir(t, [57, 64, 69, 76], 2.2); bell(t + 0.4, [93, 100, 105], 0.14); whoosh(t, 500, 7000, 0.9, 0.1, 0.5); },
+  // Umbra
+  umb_sombra: t => { whoosh(t, 1500, 300, 0.6, 0.12, 0.08); growl(t, 45, 0.7, 0.06, -5); },
+  umb_aprendiz: t => { clicks(t, 4, 0.06); growl(t + 0.1, 52, 0.4, 0.08, -4); },
+  umb_acechador: t => { hiss(t, 0.35, 0.1); clang(t + 0.05, 86, 0.04); tom(t + 0.05, 48, 0.5); },
+  umb_cultista: t => { choir(t, [45, 48, 52], 1.5, 0.05); bell(t + 0.2, [63, 69], 0.2, 0.05, 1.41, 2.5); },
+  umb_espectro: t => { whoosh(t, 4000, 500, 0.5, 0.1, 0.05); voice(mf(88), t, 0.7, { vol: 0.06, slide: -14, vib: 30 }); },
+  umb_esqueleto: t => { clicks(t, 8, 0.04, 0.12); tom(t + 0.1, 55, 0.5); clang(t + 0.3, 60, 0.03); },
+  umb_reptante: t => { hiss(t, 0.9, 0.1); growl(t, 40, 0.9, 0.1, -3); clicks(t + 0.3, 3, 0.08, 0.08); },
+  umb_lobo: t => { howl(t, 57, 1.3); growl(t, 40, 0.6, 0.1); },
+  umb_sanguijuela: t => { noise(t, 0.5, { type: 'lowpass', f0: 900, f1: 200, vol: 0.18, att: 0.15 }); voice(mf(52), t, 0.6, { vol: 0.08, slide: 7, vib: 40 }); },
+  umb_ritualista: t => { choir(t, [45, 51, 58], 1.8, 0.05); bell(t + 0.15, [63, 69], 0.2, 0.05, 1.41, 2.5); whoosh(t, 400, 2500, 0.8, 0.06, 0.4); },
+  umb_golem: t => { tom(t, 36, 1); clang(t, 40, 0.1); rumble(t, 1, 0.2); clang(t + 0.18, 43, 0.07); },
+  umb_verdugo: t => { whoosh(t, 3000, 400, 0.3, 0.12, 0.05); clang(t + 0.2, 50, 0.1); tom(t + 0.2, 38, 0.9); growl(t + 0.2, 38, 0.8, 0.1); },
+  umb_jinete: t => { [0, 0.12, 0.24, 0.36].forEach((d, i) => tom(t + d, i % 2 ? 55 : 60, 0.6)); howl(t + 0.3, 69, 1, 0.08); whoosh(t, 600, 3000, 0.7, 0.08, 0.3); },
+  umb_basalto: t => { tom(t, 38, 1); rumble(t, 1.1, 0.2); clang(t, 43, 0.08); clicks(t + 0.1, 3, 0.07, 0.1); },
+  umb_devoradora: t => { growl(t, 35, 1.4, 0.15, -9); hiss(t, 0.8, 0.09); bell(t + 0.2, [58, 64], 0.15, 0.05, 1.41, 3); howl(t + 0.3, 45, 1.1, 0.06); },
+  umb_azote: t => { whoosh(t, 800, 5000, 0.3, 0.14, 0.04); clang(t + 0.1, 74, 0.08); growl(t + 0.1, 43, 0.6, 0.12); clicks(t + 0.15, 3, 0.05); },
+  umb_behemot: t => { tom(t, 34, 1); tom(t + 0.35, 34, 0.8); growl(t, 31, 1.6, 0.2, -6); rumble(t, 1.2, 0.22); },
+  umb_abisal: t => { growl(t, 29, 2, 0.2, -10); choir(t, [34, 41, 46], 2.4, 0.05); rumble(t, 1.6, 0.18); bell(t + 0.3, [58, 65], 0.2, 0.05, 1.41, 3); },
+  umb_senor: t => { tom(t, 32, 1); choir(t, [38, 45, 50, 57], 2.4, 0.05); clang(t + 0.05, 33, 0.12); whoosh(t, 300, 4000, 1, 0.08, 0.5); bell(t + 0.5, [69, 75], 0.2, 0.05, 1.41, 3); },
+  umb_titan: t => { [0, 0.3, 0.6].forEach(d => tom(t + d, 30, 1)); growl(t, 26, 2.2, 0.22, -8); rumble(t, 1.8, 0.24); clang(t + 0.6, 36, 0.12); },
+};
+for (const [id, f] of Object.entries(UNIT)) R['u_' + id] = () => f(T0());
+/** Sonido de invocación de una unidad concreta (cada carta tiene el suyo; si falta, el de su facción). */
+export function sfxCard(id: string) {
+  if (muted) return;
+  try { boot(); (R['u_' + id] ?? R[id.startsWith('umb') ? 'summon_umb' : 'summon_lum'])(); } catch { /* sin audio */ }
 }
 export function sfx(name: string) {
   if (muted) return;
