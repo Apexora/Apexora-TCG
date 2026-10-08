@@ -179,3 +179,35 @@
 @keyframes orbhit{0%{transform:scale(1.5);filter:brightness(2.4) saturate(2)}40%{transform:scale(.88) translateX(-4px)}70%{transform:scale(1.08) translateX(3px)}100%{transform:none}}
 .card.hurt{animation:cardhurt .5s ease-out}
 @keyframes cardhurt{0%{filter:brightness(2.6) saturate(.3);transform:translateX(-5px) scale(1.04)}30%{transform:translateX(5px)}60%{transform:translateX(-3px)}100%{filter:none;transform:none}}
+
+/* ===== Pantalla de inicio: sobria, en la paleta oro / violeta / carmesí del juego ===== */
+#title{background:#07060b;overflow:hidden}
+#title::before{content:"";position:absolute;inset:20px;border:1px solid #f2d58a2e;pointer-events:none;z-index:3;box-shadow:inset 0 0 0 6px #07060b,inset 0 0 0 7px #f2d58a14}
+.t-bg{position:absolute;inset:0;background:
+  radial-gradient(ellipse 60% 55% at 12% 100%,#f2d58a30,transparent 70%),
+  radial-gradient(ellipse 60% 55% at 90% 0%,#c1121f3a,transparent 70%),
+  radial-gradient(ellipse 45% 40% at 50% 45%,#9a6bff1f,transparent 75%),
+  radial-gradient(ellipse at center,transparent 35%,#05030acc 100%),
+  linear-gradient(#0b0913c8,#07060bd8),url(/img/arena.webp) center/cover;animation:tbreath 9s ease-in-out infinite alternate}
+@keyframes tbreath{to{filter:brightness(1.18) saturate(1.1)}}
+.t-art{position:absolute;top:6%;bottom:0;width:34vw;background-repeat:no-repeat;background-size:contain;opacity:.34;pointer-events:none;animation:tdrift 12s ease-in-out infinite alternate}
+.t-art.l{left:2vw;background-image:url(/img/lum_serafin.webp);background-position:left bottom;-webkit-mask-image:linear-gradient(90deg,#000 35%,transparent);mask-image:linear-gradient(90deg,#000 35%,transparent);filter:sepia(.35) saturate(1.2)}
+.t-art.u{right:2vw;background-image:url(/img/umb_titan.webp);background-position:right bottom;-webkit-mask-image:linear-gradient(270deg,#000 35%,transparent);mask-image:linear-gradient(270deg,#000 35%,transparent);animation-delay:-6s;filter:hue-rotate(-10deg) saturate(1.1)}
+@keyframes tdrift{to{transform:translateY(-14px)}}
+#title .t-in{z-index:4;display:flex;flex-direction:column;align-items:center}
+#title .t-kicker{display:flex;align-items:center;gap:16px;font:600 12px var(--ui);letter-spacing:.55em;color:#f2d58a;margin:0 0 14px;padding-left:.55em}
+#title .t-kicker i,#title .t-sub i{display:block;width:clamp(40px,9vw,120px);height:1px;background:linear-gradient(90deg,transparent,#f2d58aaa)}
+#title .t-kicker i:last-child,#title .t-sub i:last-child{transform:scaleX(-1)}
+#title h1{font:800 clamp(56px,12vw,150px)/.95 Cinzel,serif;letter-spacing:.14em;padding-left:.14em;margin:0;background:linear-gradient(180deg,#fff6d6 0%,#f2d58a 48%,#94712e 100%);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;animation:up 1s .25s both,tgold 6s ease-in-out infinite alternate}
+@keyframes tgold{from{filter:drop-shadow(0 0 14px #f2d58a33)}to{filter:drop-shadow(0 0 30px #f2d58a77)}}
+#title .t-sub{display:flex;align-items:center;gap:18px;margin-top:6px;animation:up 1s .4s both}
+#title .t-sub span{font:600 clamp(14px,1.7vw,22px) Cinzel,serif;letter-spacing:.9em;padding-left:.9em;color:#c7a2ff;text-shadow:0 0 18px #9a6bff88}
+#title .t-fac{gap:18px;margin:34px 0 30px;font:600 13px var(--ui);letter-spacing:.3em}
+#title .t-fac .l{color:#f2d58a;text-shadow:0 0 12px #f2d58a66}#title .t-fac .u{color:#c7a2ff;text-shadow:0 0 12px #9a6bff77}#title .t-fac i{color:#f2d58a66;font-size:9px}
+#title .t-menu{gap:16px}
+#title .t-go{position:relative;font:700 14px var(--ui);letter-spacing:.24em;padding:17px 38px;color:#f6e6b4;background:linear-gradient(160deg,#1b1722f2,#0d0b14f5);clip-path:polygon(12px 0,100% 0,calc(100% - 12px) 100%,0 100%);box-shadow:inset 0 0 0 1px #f2d58a66;animation:up 1s .8s both;transition:.25s}
+#title .t-go:hover,#title .t-go:focus-visible{transform:translateY(-2px);color:#1a1204;background:linear-gradient(#fff0b8,#d9ae52);box-shadow:inset 0 0 0 1px #fff0b8;filter:drop-shadow(0 0 18px #f2d58a88);outline:0}
+#title .t-go.alt{color:#bffcef;box-shadow:inset 0 0 0 1px #2cf0c488;animation-delay:.95s}
+#title .t-go.alt:hover,#title .t-go.alt:focus-visible{color:#04211a;background:linear-gradient(#8ffbe6,#2cf0c4);box-shadow:inset 0 0 0 1px #8ffbe6;filter:drop-shadow(0 0 18px #2cf0c4aa)}
+#title .t-hint{color:#b8b0c199;font-size:11px;letter-spacing:.3em;text-transform:uppercase;margin-top:26px}
+@media(max-width:800px){.t-art{width:70vw;opacity:.18}#title::before{inset:10px}#title .t-kicker{letter-spacing:.3em;font-size:10px}#title .t-sub span{letter-spacing:.6em}#title .t-go{padding:15px 26px;font-size:12px;letter-spacing:.16em}}

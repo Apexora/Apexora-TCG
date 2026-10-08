@@ -60,8 +60,9 @@ let titleEl: HTMLElement | null = null;
 export function showMenu() {
   if (titleEl) return;
   const t = titleEl = document.createElement('div'); t.id = 'title';
-  t.innerHTML = `<div class="t-rays"></div><div class="t-in"><p class="t-kicker">DUELO DE LEYENDAS</p><h1>CARTAS<span>ALFA</span></h1>
-    <div class="t-fac"><b class="l">☀ LUMINARAE</b><i>VS</i><b class="u">UMBRA ☾</b></div>
+  t.innerHTML = `<div class="t-bg"></div><div class="t-art l"></div><div class="t-art u"></div>
+    <div class="t-in"><p class="t-kicker"><i></i>DUELO DE LEYENDAS<i></i></p><h1>CARTAS</h1><div class="t-sub"><i></i><span>ALFA</span><i></i></div>
+    <div class="t-fac"><b class="l">☀ LUMINARAE</b><i>◆</i><b class="u">UMBRA ☾</b></div>
     <div class="t-menu"><button class="t-go" data-m="ia" autofocus>⚔ JUGAR CONTRA LA IA</button><button class="t-go alt" data-m="online">🌐 JUGAR ONLINE</button></div>
     <p class="t-hint">Elige un modo · sonido activado</p></div>`;
   document.body.append(t);
