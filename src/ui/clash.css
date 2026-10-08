@@ -1,0 +1,7 @@
+/* Choque: la atacante viaja hasta tocar a la defensora (--dx/--dy calculados en main.ts) y esta recibe el golpe */
+.card.duelatk.strike.clash{animation:clash .34s cubic-bezier(.45,0,.9,.5) forwards;z-index:60;filter:drop-shadow(0 0 22px #ffd36e)}
+@keyframes clash{0%{transform:scale(1.12)}80%,100%{transform:translate(var(--dx),var(--dy)) scale(1.2)}}
+.card.duelatk.back{animation:clashback .38s cubic-bezier(.2,.8,.3,1) both;z-index:60}
+@keyframes clashback{from{transform:translate(var(--dx),var(--dy)) scale(1.2)}to{transform:scale(1.12)}}
+.card.duelblk.hit{animation:recoil .34s .22s cubic-bezier(.2,.9,.3,1) both;filter:brightness(1.6)}
+@keyframes recoil{0%{transform:scale(1.08)}30%{transform:translateY(calc(var(--dir)*16px)) rotate(calc(var(--dir)*3deg)) scale(1.02);filter:brightness(2.4)}100%{transform:scale(1.08)}}

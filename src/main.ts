@@ -7,6 +7,7 @@ import { aiAction } from './ai/ai';
 import { atkOf, canPlay, curHp, newGame, step, targetKind } from './engine/engine';
 import type { Action, Keyword, Player, SpellSpeed, State, Unit } from './engine/types';
 import { imageOf, nameOf } from './ui/skins';
+import { epicEntrance, isFlagship } from './ui/epic';
 import { LocalChannel } from './ui/chat';
 import { isMuted, setTension, sfx, sfxCard, toggleMute } from './ui/sound';
 import { Online } from './net/online';
@@ -31,7 +32,7 @@ const SPD: Record<SpellSpeed, string> = {
 const esc = (t: string) => t.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
 const newS = () => newGame([DECKS.Luminarae, DECKS.Umbra], Date.now());
 let s: State = newS();
-let duel: { atk: number; blk: number | null; strike: boolean; def: number; cap: string } | null = null, dueling = false;
+let duel: { atk: number; blk: number | null; strike: boolean; def: number; cap: string; dx?: number; dy?: number; dir?: number; back?: boolean } | null = null, dueling = false;
 let sel = new Set<number>(), mulSel = new Set<number>(), chatOpen = false, busy = false, ended = false, gameId = 0;
 let tgt: { hand: number; kind: 'enemy' | 'ally' } | null = null, selAtk: number | null = null, pend: { side: number; idx: number[] } | null = null;
 let prev = [20, 20], seen = new Set<number>(), prevPlayed = [0, 0], lastRound = 0, prevHp = new Map<number, [number, number]>(), lastBoard: number[][] = [[], []], prevS: State = s;
@@ -178,10 +179,16 @@ function playCombat(b: State, a: State, done: () => void) {
     render();
     setTimeout(() => {
       if (gid !== gameId) { duel = null; dueling = false; return; }
+      const ea = document.querySelector<HTMLElement>(`[data-uid="${uid}"]`), eb = bl ? document.querySelector<HTMLElement>(`[data-uid="${bl.uid}"]`) : null;
+      if (ea && eb) {   // la atacante se desliza hasta CHOCAR con la defensora (se detiene al tocarla, no la atraviesa)
+        const A = ea.getBoundingClientRect(), B = eb.getBoundingClientRect(), dy0 = B.top + B.height / 2 - (A.top + A.height / 2), dir = Math.sign(dy0) || 1;
+        duel!.dx = B.left + B.width / 2 - (A.left + A.width / 2); duel!.dir = dir;
+        duel!.dy = dy0 - dir * ((A.height / 1.12 * 1.2 + B.height / 1.08) / 2 - 4);
+      }
       duel!.strike = true; sfx('attack'); render();
       setTimeout(() => {
         if (gid !== gameId) { duel = null; dueling = false; return; }
-        s = hyb(k); duel!.strike = false; render();
+        s = hyb(k); duel!.strike = false; duel!.back = duel!.dx !== undefined; render();
         setTimeout(() => run(k + 1), SETTLE);
       }, STRIKE);
     }, FOCUS);
@@ -214,8 +221,9 @@ function render() {
     const valid = tgt && ((tgt.kind === 'enemy' && !mine) || (tgt.kind === 'ally' && mine));
     const a = valid ? 'tgt' : mine ? 'unit' : defMe && atkSet.has(u.uid) ? 'enemy-unit' : 'view';
     const can = mine && myTurn && s.phase === 'main' && s.tok[0] && !s.attackers.length;
-    const cls = `mini ${sel.has(i) && mine ? 'sel ' : ''}${can ? 'can ' : ''}${seen.has(u.uid) ? '' : 'enter '}${fc} ${valid ? 'tgtok ' : ''}${!mine && selAtk === i ? 'blocktarget ' : ''}${mine && blockers.has(u.uid) ? 'assignedblock ' : ''}${s.forced.includes(u.uid) || (s.forced.some(f => s.blocks[String(f)] === u.uid)) ? 'forced ' : ''}${atkSet.has(u.uid) ? 'atkr ' : ''}${pend && pend.side === side && pend.idx.includes(i) ? 'attacking ' + (side ? 'down' : 'up') : ''}${duel && u.uid === duel.atk ? 'duel duelatk ' + (duel.strike ? 'strike ' + (side ? 'sdown' : 'sup') : '') : duel && u.uid === duel.blk ? 'duel duelblk ' : ''}`;
-    return card(u.card, `data-u="${side}:${i}" data-a="${a}" data-i="${i}" data-uid="${u.uid}"`, cls, u, fx ? `<span class="fx">${fx}</span>` : '');
+    const cls = `mini ${sel.has(i) && mine ? 'sel ' : ''}${can ? 'can ' : ''}${seen.has(u.uid) ? '' : 'enter '}${fc} ${valid ? 'tgtok ' : ''}${!mine && selAtk === i ? 'blocktarget ' : ''}${mine && blockers.has(u.uid) ? 'assignedblock ' : ''}${s.forced.includes(u.uid) || (s.forced.some(f => s.blocks[String(f)] === u.uid)) ? 'forced ' : ''}${atkSet.has(u.uid) ? 'atkr ' : ''}${pend && pend.side === side && pend.idx.includes(i) ? 'attacking ' + (side ? 'down' : 'up') : ''}${duel && u.uid === duel.atk ? 'duel duelatk ' + (duel.strike ? 'strike ' + (duel.dx !== undefined ? 'clash ' : '') + (side ? 'sdown' : 'sup') : duel.back ? 'back ' : '') : duel && u.uid === duel.blk ? 'duel duelblk ' + (duel.strike && duel.dx !== undefined ? 'hit ' : '') : ''}`;
+    const st = duel && duel.dx !== undefined && ((u.uid === duel.atk && (duel.strike || duel.back)) || (u.uid === duel.blk && duel.strike)) ? ` style="--dx:${duel.dx!.toFixed(1)}px;--dy:${duel.dy!.toFixed(1)}px;--dir:${duel.dir}"` : '';
+    return card(u.card, `data-u="${side}:${i}" data-a="${a}" data-i="${i}" data-uid="${u.uid}"${st}`, cls, u, fx ? `<span class="fx">${fx}</span>` : '');
   };
   const lanes = (p: Player, side: number) => {
     const back: string[] = [], comb: string[] = [];
@@ -274,7 +282,10 @@ function render() {
   // --- efectos y sonidos por transición de estado ---
   const fresh = s.p.some(p => p.board.some(u => !seen.has(u.uid))), gone = lastBoard.some(l => l.some(uid => !s.p.some(p => p.board.some(u => u.uid === uid))));
   if (fresh) s.p.flatMap(p => p.board.filter(u => !seen.has(u.uid)).map(u => u.card)).forEach((id, k) => setTimeout(() => sfxCard(id), k * 170)); if (gone) sfx('death');
-  s.p.forEach((p, i) => p.board.filter(u => !seen.has(u.uid)).forEach(u => (i ? reader(u.card, 1, u) : spot(u.card, 0, u))));
+  s.p.forEach((p, i) => p.board.filter(u => !seen.has(u.uid)).forEach(u => {
+    if (isFlagship(u.card)) { document.querySelectorAll('.spot,.reader').forEach(e => e.remove()); reading = true; sfx('round'); epicEntrance(u.card, card(u.card, '', '', u), () => { reading = false; }); }
+    else if (i) reader(u.card, 1, u); else spot(u.card, 0, u);
+  }));
   if (me.nexus < prev[0]) vfx('vhit'); else if (me.nexus > prev[0]) vfx('vheal');
   if (me.nexus < prev[0] || foe.nexus < prev[1]) sfx('hurt'); if (me.nexus > prev[0] || foe.nexus > prev[1]) sfx('heal');
   s.p.forEach((p, i) => { const id = p.played[p.played.length - 1]; if (p.played.length > prevPlayed[i] && id && CARDS[id].type === 'spell') { vfx('cast ' + id.slice(0, 3)); sfx('spell_' + id.slice(0, 3)); if (i) reader(id, 1); else spot(id, 0); if (i === 1) react('cast'); } });

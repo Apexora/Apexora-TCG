@@ -1,5 +1,6 @@
 // Efectos de combate y hechizos: motor de partículas en canvas (aditivo) enganchado por observador al DOM.
 // No toca la lógica: reacciona a .card.attacking / .dying / .hurt / .boost, .orb.hit / .heal y .vfx.cast.
+import './clash.css';
 type K = 'spark' | 'glow' | 'ring' | 'shard' | 'smoke' | 'rune' | 'pillar' | 'bolt' | 'slash' | 'vort';
 interface P {
   k: K; x: number; y: number; vx: number; vy: number; g: number; d: number; t: number; life: number; delay: number;
@@ -111,6 +112,36 @@ function impact(x: number, y: number, size: number, pal: Pal, power = 1) {
 }
 const rect = (e: Element) => e.getBoundingClientRect();
 
+
+// ---------- romper una carta en fragmentos (se usa al morir en combate o por hechizo) ----------
+function shake() { const app = document.getElementById('app'); if (app) { app.classList.remove('shk-soft', 'shk-hard'); void app.offsetWidth; app.classList.add('shk-hard'); } }
+function shatter(src: HTMLElement, r: DOMRect, pal: Pal, power: number) {
+  const COLS = 3, ROWS = 4, w = r.width, h = r.height, cx = r.left + w / 2, cy = r.top + h / 2;
+  const pt: number[][][] = Array.from({ length: ROWS + 1 }, (_, j) => Array.from({ length: COLS + 1 }, (_, i) =>
+    [i / COLS * w + (i && i < COLS ? rr(-.09, .09) * w : 0), j / ROWS * h + (j && j < ROWS ? rr(-.07, .07) * h : 0)]));
+  const base = src.cloneNode(true) as HTMLElement; base.classList.remove('dying', 'enter', 'hurt', 'boost'); base.removeAttribute('data-a'); base.removeAttribute('data-uid');
+  base.style.cssText = `--w:${w}px;position:fixed;left:${r.left}px;top:${r.top}px;width:${w}px;height:${h}px;margin:0;animation:none;transition:none;pointer-events:none;z-index:90;will-change:transform,opacity`;
+  const frag = document.createDocumentFragment(), anims: Animation[] = [], nodes: HTMLElement[] = [];
+  for (let j = 0; j < ROWS; j++) for (let i = 0; i < COLS; i++) {
+    const a = pt[j][i], b = pt[j][i + 1], c = pt[j + 1][i + 1], d = pt[j + 1][i], flip = (i + j) % 2;
+    for (const tri of flip ? [[a, b, d], [b, c, d]] : [[a, b, c], [a, c, d]]) {
+      const n = base.cloneNode(true) as HTMLElement, mx = (tri[0][0] + tri[1][0] + tri[2][0]) / 3, my = (tri[0][1] + tri[1][1] + tri[2][1]) / 3;
+      n.style.clipPath = `polygon(${tri.map(q => q[0].toFixed(1) + 'px ' + q[1].toFixed(1) + 'px').join(',')})`;
+      const dx = mx - w / 2, dy = my - h / 2, l = Math.hypot(dx, dy) || 1, sp = rr(.8, 1.9) * w * .55 * power, rot = rr(-240, 240) * power;
+      frag.append(n); nodes.push(n);
+      anims.push(n.animate([
+        { transform: 'translate(0,0) rotate(0)', opacity: 1, filter: 'brightness(2.6) saturate(1.4)' },
+        { transform: `translate(${dx / l * sp * .55}px,${dy / l * sp * .55 - h * .12}px) rotate(${rot * .5}deg)`, opacity: 1, filter: 'brightness(1.2)', offset: .35 },
+        { transform: `translate(${dx / l * sp}px,${dy / l * sp + h * rr(.5, 1)}px) rotate(${rot}deg) scale(.8)`, opacity: 0, filter: 'brightness(.6)' },
+      ], { duration: rr(650, 1000), easing: 'cubic-bezier(.2,.7,.4,1)', fill: 'forwards' }));
+    }
+  }
+  document.body.append(frag);
+  Promise.allSettled(anims.map(a => a.finished)).then(() => nodes.forEach(n => n.remove()));
+  add({ k: 'glow', x: cx, y: cy, sz: w * 1.1, gr: .6, life: 380, h: hue(pal), l: 85, a: .8 });
+  add({ k: 'ring', x: cx, y: cy, sz: w * .2, gr: w * 1.2 * power, w: 6, life: 520, h: hue(pal), l: 78 });
+}
+
 // ---------- hechizos ----------
 function castLum(cx: number, cy: number, Rd: number) {
   add({ k: 'glow', x: cx, y: cy, sz: Rd * .9, gr: .6, life: 1100, h: 46, l: 82, a: .55 });
@@ -175,6 +206,7 @@ function nexusHit(e: HTMLElement, orb: DOMRect) {
 }
 
 // ---------- observador del DOM ----------
+let castAt = -1e9, castPal: Pal = 'lum';
 const seen = new Map<string, number>();
 const fresh = (key: string, ms: number) => { const n = performance.now(); if (n - (seen.get(key) ?? -1e9) < ms) return false; seen.set(key, n); if (seen.size > 80) seen.clear(); return true; };
 const facOf = (e: Element): Pal => e.classList.contains('umb') ? 'umb' : 'lum';
@@ -184,6 +216,7 @@ function handle(e: HTMLElement) {
   if (cl.contains('cast')) {
     if (!fresh('cast', 500)) return;
     const pw = document.querySelector('.plane-wrap'), pr = pw ? rect(pw) : null, cx = pr ? pr.left + pr.width / 2 : W / 2, cy = pr ? pr.top + pr.height * .5 : H / 2, Rd = Math.min(pr ? pr.width : W, pr ? pr.height : H) * .42;
+    castAt = performance.now(); castPal = cl.contains('umb') ? 'umb' : 'lum';
     (cl.contains('umb') ? castUmb : castLum)(cx, cy, Rd);
   } else if (cl.contains('card') && cl.contains('attacking')) {
     if (!fresh('a' + key, 800)) return;
@@ -196,11 +229,21 @@ function handle(e: HTMLElement) {
       add({ k: 'ring', x: ix, y: iy, sz: w * .1, gr: w * .95, w: 6, life: 380, h: hue(f), l: 76 });
       slash(ix, iy, w * .75, f, dir < 0 ? rr(-2.5, -2.1) : rr(.55, 1.0));
     });
+  } else if (cl.contains('card') && cl.contains('strike') && cl.contains('clash')) {
+    // la atacante choca contra la defensora: impacto en el punto de contacto
+    const tg = document.querySelector<HTMLElement>('.card.duelblk'); if (!tg) return;
+    const f = facOf(e), B = rect(tg), dir = Math.sign(B.top + B.height / 2 - y) || 1, w = r.width;
+    later(250, () => { const ix = B.left + B.width / 2, iy = B.top + B.height / 2 - dir * B.height / 2 + dir * 4;
+      add({ k: 'glow', x: ix, y: iy, sz: w * 1.3, gr: .5, life: 260, h: 48, s: 40, l: 96, a: 1 });
+      impact(ix, iy, w * 1.15, f, 1.4); impact(ix, iy, w * .7, 'fire', 1); shake(); });
   } else if (cl.contains('card') && cl.contains('dying')) {
     if (!fresh('d' + key, 900)) return;
-    const f = facOf(e), w = r.width;
-    impact(x, y, w * 1.05, f, 1.1);
-    for (let i = 0; i < 14; i++) add({ k: 'glow', x: x + rr(-w * .35, w * .35), y: y + rr(-w * .2, w * .3), vx: rr(-.3, .3), vy: -rr(.6, 2), g: -.008, sz: rr(3, 7), life: rr(900, 1500), delay: R() * 250, h: hue(f, i % 2), l: 80, a: .9 });
+    const f = facOf(e), w = r.width, bySpell = performance.now() - castAt < 2200, pf = bySpell ? castPal : f;
+    e.style.animation = 'none';                                       // se queda visible hasta el golpe y entonces se rompe
+    later(bySpell ? (castPal === 'umb' ? 720 : 460) : 0, () => {
+      e.style.opacity = '0'; shatter(e, r, pf, bySpell ? 1.7 : 1.15); impact(x, y, w * 1.05, pf, bySpell ? 1.5 : 1.1); if (bySpell) shake();
+      for (let i = 0; i < 14; i++) add({ k: 'glow', x: x + rr(-w * .35, w * .35), y: y + rr(-w * .2, w * .3), vx: rr(-.3, .3), vy: -rr(.6, 2), g: -.008, sz: rr(3, 7), life: rr(900, 1500), delay: R() * 250, h: hue(pf, i % 2), l: 80, a: .9 });
+    });
   } else if (cl.contains('card') && cl.contains('hurt')) {
     if (!fresh('h' + key, 500)) return;
     impact(x, y, r.width * .75, 'fire', .7);
@@ -219,7 +262,7 @@ function handle(e: HTMLElement) {
   }
 }
 
-const SEL = '.card.attacking,.card.dying,.card.hurt,.card.boost,.orb.hit,.orb.heal,.vfx.cast';
+const SEL = '.card.strike.clash,.card.attacking,.card.dying,.card.hurt,.card.boost,.orb.hit,.orb.heal,.vfx.cast';
 export function initCombatFx() {
   if (matchMedia('(prefers-reduced-motion:reduce)').matches) return;
   cv = document.createElement('canvas'); cv.id = 'combatfx'; document.body.append(cv); ctx = cv.getContext('2d')!;
@@ -228,6 +271,6 @@ export function initCombatFx() {
   new MutationObserver(ms => {
     const found: HTMLElement[] = [];
     ms.forEach(m => m.addedNodes.forEach(n => { if (!(n instanceof HTMLElement)) return; if (n.matches(SEL)) found.push(n); n.querySelectorAll<HTMLElement>(SEL).forEach(x => found.push(x)); }));
-    found.forEach(handle);
+    found.sort((a, b) => +b.classList.contains('cast') - +a.classList.contains('cast')).forEach(handle);
   }).observe(document.body, { childList: true, subtree: true });
 }
