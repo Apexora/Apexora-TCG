@@ -1,4 +1,4 @@
-import { collection, doc, getDoc, onSnapshot, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
+import { addDoc, collection, doc, getDoc, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
 import { db, ensureUser, isConfigured, netErr } from './firebase';
 import { allowed, applyMove, initialState, toWire, type Seat } from './sync';
 import type { Action, State } from '../engine/types';
@@ -12,6 +12,7 @@ export interface OnlineHandlers {
   onMoves(g: State, fresh: { before: State; action: Action; seat: Seat }[], replay: boolean): void;
   onStatus(msg: string): void;       // "Esperando rival…", errores…
   onReady(): void;                    // ambos dentro: empieza la partida
+  onChat?(m: { id: string; mine: boolean; text: string }): void;  // mensaje del chat entre jugadores
   onSettled(): void;                  // mi jugada volvió confirmada (por si el motor la ignoró y no hay cambio que pintar)
 }
 
@@ -20,6 +21,7 @@ export class Online {
   g!: State;
   private host = ''; private guest = ''; private seed = 0;
   private applied = 0; private sending = false; private sentAt = -1; private unsubs: (() => void)[] = [];
+  private chatSeen = new Set<string>();
   private ready = false; private pulled = false; private waiters: (() => void)[] = [];
   constructor(private h: OnlineHandlers) {}
 
@@ -60,7 +62,15 @@ export class Online {
   }
 
   /** Volver a una sala guardada tras recargar. */
-  async resume(code: string) { await this.join(code); }
+  /** Solo se reanuda una sala con la partida en marcha. Una sala que quedó "esperando rival" (o que ya no existe)
+   *  se descarta: si no, la app arrancaba en modo online sin partida y el mulligan contra la IA no avanzaba. */
+  async resume(code: string) {
+    try {
+      const u = await ensureUser(), snap = await getDoc(doc(db, 'tcgGames', code.trim().toUpperCase())), d = snap.data();
+      if (!snap.exists() || d?.status !== 'playing' || (d.host !== u.uid && d.guest !== u.uid)) { Online.clearSaved(); throw new Error('Sala no disponible'); }
+    } catch (e) { Online.clearSaved(); throw e; }
+    await this.join(code);
+  }
 
   private listen() {
     const gref = doc(db, 'tcgGames', this.code);
@@ -71,6 +81,10 @@ export class Online {
         this.ready = true; this.g = initialState(this.seed); this.applied = 0; this.pulled = false;
         this.h.onReady(); this.h.onStatus(`Sala ${this.code}: ¡partida en marcha!`);
         // solo se escuchan las jugadas cuando ya hay dos jugadores (así las reglas dejan leer)
+        this.unsubs.push(onSnapshot(query(collection(gref, 'chat'), orderBy('t')), cs => cs.docChanges().forEach(c => {
+          if (c.type !== 'added' || this.chatSeen.has(c.doc.id)) return; this.chatSeen.add(c.doc.id);
+          const m = c.doc.data(); this.h.onChat?.({ id: c.doc.id, mine: m.by === this.uid, text: String(m.text ?? '') });
+        }), e => this.h.onStatus('Chat: ' + netErr(e))));
         this.unsubs.push(onSnapshot(collection(gref, 'moves'), { includeMetadataChanges: true }, ms => this.pull(ms.docs), e => this.h.onStatus(netErr(e))));
       }
     }, e => this.h.onStatus(netErr(e))));
@@ -122,7 +136,14 @@ export class Online {
     this.h.onStatus('No se pudo enviar la jugada; revisa el tablero y repítela.');
     return false;
   }
+  /** Envía un mensaje al chat de la sala (solo con la partida en marcha). */
+  async sendChat(text: string) {
+    if (!this.ready) throw new Error('El chat se activa cuando entra el rival.');
+    try { await addDoc(collection(db, 'tcgGames', this.code, 'chat'), { by: this.uid, text: text.slice(0, 140), t: Date.now() }); }
+    catch (e) { throw new Error(netErr(e)); }
+  }
   get busy() { return this.sending; }
+  get isReady() { return this.ready; }
 
   close() { this.unsubs.forEach(u => u()); this.unsubs = []; this.waiters = []; Online.clearSaved(); }
 }

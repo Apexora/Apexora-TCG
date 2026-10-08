@@ -1,5 +1,6 @@
 // Capa de espectáculo: pantalla de título, partículas, foil holográfico, temblor de pantalla, estela del cursor y sonido de interfaz.
 import { sfx, startMusic } from './sound';
+import { initCombatFx } from './combatfx';
 const css = (el: HTMLElement, k: string, v: string) => el.style.setProperty(k, v);
 
 function particles() {
@@ -54,14 +55,22 @@ function shake(k: 'soft' | 'hard') {
 function flash(color: string) {
   const f = document.createElement('div'); f.className = 'flash'; f.style.background = `radial-gradient(circle at 50% 50%,${color},transparent 70%)`; document.body.append(f); setTimeout(() => f.remove(), 700);
 }
-function title() {
-  if (sessionStorage.getItem('cartas-intro')) { startOnGesture(); return; }
-  const t = document.createElement('div'); t.id = 'title';
+let titleEl: HTMLElement | null = null;
+/** Menú principal: elegir jugar contra la IA o en línea. Avisa a main.ts con eventos 'menu:ia' / 'menu:online'. */
+export function showMenu() {
+  if (titleEl) return;
+  const t = titleEl = document.createElement('div'); t.id = 'title';
   t.innerHTML = `<div class="t-rays"></div><div class="t-in"><p class="t-kicker">DUELO DE LEYENDAS</p><h1>CARTAS<span>ALFA</span></h1>
     <div class="t-fac"><b class="l">☀ LUMINARAE</b><i>VS</i><b class="u">UMBRA ☾</b></div>
-    <button class="t-go" autofocus>COMENZAR DUELO</button><p class="t-hint">Pulsa para empezar · sonido activado</p></div>`;
+    <div class="t-menu"><button class="t-go" data-m="ia" autofocus>⚔ JUGAR CONTRA LA IA</button><button class="t-go alt" data-m="online">🌐 JUGAR ONLINE</button></div>
+    <p class="t-hint">Elige un modo · sonido activado</p></div>`;
   document.body.append(t);
-  t.querySelector('button')!.addEventListener('click', () => { sfx('start'); startMusic(); sessionStorage.setItem('cartas-intro', '1'); t.classList.add('out'); setTimeout(() => t.remove(), 900); });
+  t.querySelectorAll<HTMLElement>('[data-m]').forEach(b => b.addEventListener('click', () => {
+    sfx('start'); startMusic();
+    if (b.dataset.m === 'ia') { hideMenu(); document.dispatchEvent(new Event('menu:ia')); }
+    else document.dispatchEvent(new Event('menu:online'));
+  }));
 }
-function startOnGesture() { addEventListener('pointerdown', () => startMusic(), { once: true }); }
-export function initFx() { particles(); trail(); foil(); reactions(); title(); }
+export function hideMenu() { const t = titleEl; if (!t) return; titleEl = null; t.classList.add('out'); setTimeout(() => t.remove(), 900); }
+function title() { showMenu(); }
+export function initFx() { initCombatFx(); particles(); trail(); foil(); reactions(); title(); }

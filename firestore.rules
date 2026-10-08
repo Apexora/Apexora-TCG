@@ -22,6 +22,18 @@ service cloud.firestore {
         && request.resource.data.status == 'playing'
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['guest', 'status']);
       allow delete: if false;
+      match /chat/{id} {
+        allow read: if request.auth != null && (request.auth.uid == game().host || request.auth.uid == game().guest);
+        allow create: if request.auth != null
+          && request.resource.data.keys().hasOnly(['by', 'text', 't'])
+          && request.resource.data.by == request.auth.uid
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 140
+          && request.resource.data.t is int
+          && game().status == 'playing'
+          && (request.auth.uid == game().host || request.auth.uid == game().guest);
+        allow update, delete: if false;
+      }
       match /moves/{n} {
         allow read: if request.auth != null && (request.auth.uid == game().host || request.auth.uid == game().guest);
         allow create: if request.auth != null

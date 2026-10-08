@@ -74,3 +74,108 @@
 .vfx.toast{position:fixed;left:50%;top:13%;transform:translateX(-50%);padding:10px 22px;background:#2a0d12f2;border:1px solid var(--ember);border-radius:6px;z-index:95;font:700 14px var(--ui);letter-spacing:.06em;animation:up .3s both}
 .preview{left:18px;top:70px;right:auto;bottom:auto;z-index:70}
 @media (max-width:900px){.manapanel{display:none}.pt{transform:scale(.8)}.plane-wrap{width:97vw}.stage .lane .card,.stage .lane .slot{--w:13.5vw}.fan .card{--w:23vw}.foehand{display:none}.stage .pile{display:none}}
+
+/* ===== v3.4 · mejoras tras la prueba del tester ===== */
+/* HUD de fases */
+.phasehud{position:absolute;left:18px;top:3%;width:172px;z-index:14;padding:10px 10px 8px;border-radius:12px;background:linear-gradient(160deg,#17142bf2,#0c0a18f5);border:1px solid var(--edge);box-shadow:0 12px 30px #000a;transition:.3s}
+.phasehud .who{font:800 13px var(--ui);letter-spacing:.14em;text-align:center;padding:7px 4px;margin-bottom:8px;border-radius:8px;background:#ffffff10;color:#cfc8e6}
+.phasehud.mine{border-color:#2cf0c4aa;box-shadow:0 0 28px #2cf0c455,0 12px 30px #000a}.phasehud.mine .who{background:linear-gradient(90deg,#14705a,#1a9c78);color:#fff;animation:go 1.8s ease-in-out infinite}
+.phasehud.theirs{border-color:#ff5a6a88}.phasehud.theirs .who{background:linear-gradient(90deg,#6a1420,#9c1a2c);color:#ffd9de}
+.phasehud ol{list-style:none;margin:0;padding:0;display:grid;gap:5px}
+.phasehud li{display:grid;grid-template-columns:22px 1fr;align-items:center;gap:2px 8px;padding:6px 8px;border-radius:8px;border:1px solid #ffffff12;background:#ffffff08;color:#8f89ad;font:700 11px var(--ui);letter-spacing:.1em;transition:.25s}
+.phasehud li i{grid-row:1;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-style:normal;font-size:10px;background:#ffffff14}
+.phasehud li small{grid-column:1/3;font:500 10.5px/1.3 var(--ui);letter-spacing:0;color:#e7e1ff;text-transform:none}
+.phasehud li.done{opacity:.55}.phasehud li.done i{background:#2cf0c444}
+.phasehud li.on{color:#fff;border-color:#ffd36e;background:linear-gradient(90deg,#5a3d0a99,#2a1c0599);box-shadow:0 0 18px #ffcf6e55;transform:scale(1.04)}
+.phasehud li.on i{background:#ffd36e;color:#1a1204}
+.phasehud .hstack{margin-top:7px;text-align:center;font:700 10px var(--ui);letter-spacing:.12em;color:#d9c4ff;padding:5px;border-radius:7px;background:#9a6bff33}
+.stage .stacktray{top:36%}.stage .blocksummary{top:62%}
+.vfx.banner.turn{color:#8ffbe6;text-shadow:0 0 30px #2cf0c4}
+/* Pila con descripción */
+.stackitem{display:block;width:100%;padding:8px 10px;margin-top:6px;text-align:left;border-left:3px solid #9a6bff}
+.stackitem.foe{border-left-color:#ff5a6a}.stackitem.me{border-left-color:#2cf0c4}.stackitem.top{box-shadow:0 0 14px #ffcf6e55}
+.stackitem .si-h{display:flex;align-items:center;gap:6px}.stackitem .si-h em{font-style:normal;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#ffb0b5}.stackitem.me .si-h em{color:#8ffbe6}
+.stackitem .si-h strong{flex:1;font-size:12.5px}.stackitem .si-h i{font-style:normal;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;background:#1c3f8c;font-size:11px;font-weight:800}
+.stackitem p{margin:5px 0 0;font:500 11.5px/1.35 var(--ui);color:#e4def5}.stackitem small{display:block;margin-top:4px;color:#ffd36e;font-size:11px}
+/* Columnas de combate: defensor justo enfrente del atacante */
+.lane.foecomb,.lane.mycomb{min-height:0}
+.stage .lane .slot.cslot{opacity:.9;border:2px dashed #ffffff40;display:grid;place-items:center}.stage .lane .slot.cslot::after{display:none}
+.stage .lane .slot.cslot.ask{border-color:#2cf0c4;background:#2cf0c41a;animation:go 1.6s ease-in-out infinite}
+.slot.cslot span{font:700 11px/1.2 var(--ui);letter-spacing:.1em;text-transform:uppercase;color:#bffcef;text-align:center}
+/* Lector de cartas del rival */
+.reader{position:fixed;right:22px;top:8%;width:270px;z-index:90;padding:12px;border-radius:14px;text-align:center;cursor:pointer;background:linear-gradient(160deg,#1a1530f7,#0a0814f7);border:1px solid #ffcf6e;box-shadow:0 0 0 2px #0008,0 0 50px #9a6bff99,0 24px 60px #000;animation:rdin .35s cubic-bezier(.2,1.3,.4,1)}
+.reader.foe{border-color:#ff5a6a;box-shadow:0 0 0 2px #0008,0 0 50px #ff5a6a77,0 24px 60px #000}
+@keyframes rdin{from{opacity:0;transform:translateX(60px) scale(.8)}to{opacity:1;transform:none}}
+.reader .rd-h{font:800 14px var(--ui);letter-spacing:.14em;text-transform:uppercase;color:#ffd36e;margin-bottom:8px}.reader.foe .rd-h{color:#ff9aa6}
+.reader .card{--w:210px;margin:0 auto;pointer-events:none}
+.reader .rd-t{margin-top:10px;text-align:left}.reader .rd-t b{font-size:15px}.reader .rd-t p{margin:4px 0 0;font:500 13.5px/1.4 var(--ui);color:#f1ecff}
+.reader .rules{text-align:left;margin-top:8px;font-size:11.5px;color:#cfc8e6;max-height:150px;overflow:auto}.reader .rules p{margin:3px 0}
+.reader .rd-ok{margin-top:10px;width:100%;padding:9px;border-radius:9px;border:1px solid #2cf0c4aa;background:#14705a;color:#fff;font:800 12px var(--ui);letter-spacing:.14em;cursor:pointer}
+.reader .rd-bar{display:block;height:3px;margin-top:8px;border-radius:3px;background:linear-gradient(90deg,#ffd36e,#ff5a6a);transform-origin:left;animation:rdbar linear forwards}
+@keyframes rdbar{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+/* Maná: reserva de hechizo */
+.manapanel .mnote{margin:4px 0 0;font:500 10px/1.3 var(--ui);color:#a9a2cc;clip-path:none}
+.gems u.pay{outline:2px solid #ffd36e;outline-offset:2px;animation:payb .6s ease-in-out infinite alternate}
+@keyframes payb{to{transform:rotate(45deg) scale(.7);opacity:.5}}
+@media (max-width:1300px){.phasehud{width:140px;left:8px}.phasehud li small{display:none}.reader{width:220px;right:8px}.reader .card{--w:160px}}
+@media (max-width:900px){.phasehud{top:2px;left:2px;width:auto;padding:4px}.phasehud ol{display:flex}.phasehud li span,.phasehud .hstack{display:none}.phasehud li.on span{display:inline}.reader{top:auto;bottom:110px;right:6px;width:200px}.reader .rules{display:none}}
+.stage .pile.p0{top:auto;bottom:30%}
+
+.stage .stacktray{width:250px}.stackitem{cursor:help}
+
+/* ===== Iluminación por fase: Robo (aurora turquesa) · Invocación (oro) · Combate (carmesí) · Final (violeta) ===== */
+@property --lc{syntax:'<color>';inherits:true;initial-value:#9a6bff}
+@property --la{syntax:'<color>';inherits:true;initial-value:#9a6bff00}
+@property --lb{syntax:'<color>';inherits:true;initial-value:#9a6bff00}
+#app{--lc:#9a6bff;--la:#9a6bff22;--lb:#00000000;--lx:50%;--ly:0%;
+  transition:--lc 1s ease,--la 1s ease,--lb 1s ease}
+#app[data-ph="0"]{--lc:#2cf0c4;--la:#2cf0c43d;--lb:#9a6bff2e;--ly:0%}   /* Robo: amanecer turquesa */
+#app[data-ph="1"]{--lc:#ffd36e;--la:#ffcf6e40;--lb:#f2d58a1f;--ly:-8%}  /* Invocación: foco dorado cenital */
+#app[data-ph="2"]{--lc:#ff5a6a;--la:#d52a3a47;--lb:#c1121f33;--ly:50%}  /* Combate: carmesí, tensión */
+#app[data-ph="3"]{--lc:#9a6bff;--la:#7b55d93d;--lb:#14123a66;--ly:100%} /* Final: crepúsculo violeta */
+#app::before{content:"";position:fixed;inset:0;z-index:6;pointer-events:none;mix-blend-mode:screen;
+  background:radial-gradient(ellipse 75% 60% at var(--lx) var(--ly),var(--la),transparent 70%),
+             linear-gradient(90deg,var(--lb),transparent 22%,transparent 78%,var(--lb));
+  animation:phbreath 6s ease-in-out infinite}
+#app[data-ph="2"]::before{animation-duration:2.4s}
+@keyframes phbreath{50%{filter:brightness(1.35) saturate(1.15)}}
+/* el tablero toma el color de la fase */
+#app .plane{border-color:color-mix(in srgb,var(--lc) 45%,transparent);
+  box-shadow:0 0 90px color-mix(in srgb,var(--lc) 26%,transparent),inset 0 0 90px #000c,0 40px 90px #000c}
+#app .stage::before{filter:saturate(1.15) contrast(1.05) hue-rotate(0deg)}
+@media(prefers-reduced-motion:reduce){#app::before{animation:none}}
+
+/* ===== Maquetación en columnas: nada se pisa (escritorio) ===== */
+.stage{--side:clamp(196px,16vw,250px);--cw:clamp(92px,min(8.6vw,16.5vh),150px)}
+@media(min-width:901px){
+  .sideL,.sideR{position:absolute;top:12px;bottom:14px;width:var(--side);display:flex;flex-direction:column;gap:12px;z-index:14;pointer-events:none}
+  .sideL{left:16px}.sideR{right:16px;align-items:stretch}
+  .sideL>*,.sideR>*{pointer-events:auto;position:relative}
+  /* panel de fases + pila + combate arriba; héroe abajo */
+  .sideL .phasehud{left:auto;top:auto;width:100%;flex:none}
+  .sideL .stacktray,.sideL .blocksummary{position:relative;left:auto;right:auto;top:auto;width:100%;flex:0 1 auto;min-height:0;overflow:auto;margin:0}
+  .pgroup{display:flex;align-items:flex-end;justify-content:center;gap:12px;margin-top:auto;flex:none}
+  .sideR .pgroup{margin-top:0}
+  .sideR .manapanel{position:relative;right:auto;bottom:auto;width:100%;margin-top:auto;flex:none}
+  .sideR .endbtn{position:relative;right:auto;bottom:auto;align-self:center;flex:none;width:var(--cw);margin:10px 0 6px}
+  .pt{position:relative;top:auto;bottom:auto;left:auto;right:auto;width:auto;flex:1 1 0;min-width:0}
+  .pt .ava{width:clamp(64px,min(6vw,11vh),100px)}
+  .stage .pile{position:relative;left:auto;right:auto;top:auto;bottom:auto;flex:none;width:clamp(60px,min(5.2vw,9vh),88px);height:auto;aspect-ratio:5/7;font-size:clamp(18px,1.8vw,26px)}
+  .stage .pile::after{content:attr(data-l);position:absolute;bottom:-17px;left:0;right:0;text-align:center;font:700 9px var(--ui);letter-spacing:.16em;color:#cfc8e6}
+  .pgroup{padding-bottom:18px}
+  /* centro: el tablero respeta las columnas; mano y mensajes dentro del hueco */
+  .plane-wrap{width:min(1240px,calc(100% - 2*var(--side) - 48px))}
+  .fan{max-width:calc(100% - 2*var(--side) - 48px)}
+  .fan .slotc,.fan .card{--w:var(--cw)}
+  .msgbar{max-width:calc(100% - 2*var(--side) - 48px)}
+  .reader{right:calc(var(--side) + 32px)}
+}
+@media(max-width:900px){.sideL,.sideR,.pgroup{display:contents}}
+
+/* ===== Efectos de combate (canvas) ===== */
+#combatfx{position:fixed;inset:0;width:100vw;height:100vh;z-index:58;pointer-events:none}
+.vfx.cast{display:none!important} /* el aro simple antiguo se sustituye por el motor de partículas */
+.orb.hit{animation:orbhit .55s cubic-bezier(.2,.9,.3,1.3)}
+@keyframes orbhit{0%{transform:scale(1.5);filter:brightness(2.4) saturate(2)}40%{transform:scale(.88) translateX(-4px)}70%{transform:scale(1.08) translateX(3px)}100%{transform:none}}
+.card.hurt{animation:cardhurt .5s ease-out}
+@keyframes cardhurt{0%{filter:brightness(2.6) saturate(.3);transform:translateX(-5px) scale(1.04)}30%{transform:translateX(5px)}60%{transform:translateX(-3px)}100%{filter:none;transform:none}}

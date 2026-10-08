@@ -87,3 +87,7 @@ h1 small{-webkit-text-fill-color:var(--teal);letter-spacing:.35em}
 .t-go:hover{transform:scale(1.08);filter:drop-shadow(0 0 24px #ffcf6e)}@keyframes pulseGo{50%{filter:drop-shadow(0 0 20px #ffcf6eaa)}}
 .t-hint{color:#fff5;font-size:12px;letter-spacing:.2em;margin-top:22px;animation:up 1s 1.1s both}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}#embers,#glow{display:none}}
+
+.t-menu{display:flex;gap:18px;justify-content:center;flex-wrap:wrap;position:relative;z-index:2}
+.t-go.alt{color:#e9fff9;background:linear-gradient(#2cd9ae,#127a62)}.t-go.alt:hover{filter:drop-shadow(0 0 24px #2cf0c4)}
+.t-go{padding:18px 40px;font-size:15px;letter-spacing:.22em}

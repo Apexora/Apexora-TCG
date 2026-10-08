@@ -133,6 +133,17 @@ export function canPlay(s: State, i: number, idx: number): boolean {
   if (c.fx.some(e => e.t === 'sacDmg') && !p.board.length) return false;
   return true;
 }
+/** Tras un hechizo en fase de bloqueo: anula los bloqueos que ya no son legales (p. ej. el atacante ganó Elusivo). */
+function fixBlocks(s: State) {
+  if (s.phase !== 'block' && !(s.phase === 'stack' && s.resumePhase === 'block')) return;
+  const A = s.p[s.token], D = s.p[o(s.token)];
+  for (const key of Object.keys(s.blocks)) {
+    const a = A.board.find(u => String(u.uid) === key), b = D.board.find(u => u.uid === s.blocks[key]);
+    if (a && b && canBlock(a, b)) continue;
+    if (a && b) s.log.push(`Bloqueo anulado: {${b.card}} ya no puede bloquear a {${a.card}}`);
+    delete s.blocks[key]; s.forced = s.forced.filter(f => String(f) !== key);
+  }
+}
 function resolveTop(s: State) {
   const it = s.stack.pop(); if (!it) return;
   const c = CARDS[it.card], k = targetKind(it.card); let tgt: Unit | undefined;
@@ -147,6 +158,7 @@ function finishStack(s: State) {
   const starter = s.stack[0]?.owner ?? s.active;
   while (s.stack.length && s.winner === null) resolveTop(s);
   if (s.winner !== null) return;
+  fixBlocks(s);
   s.phase = s.resumePhase; s.active = o(starter); s.passes = 0;
 }
 function resolveCombat(s: State) {
@@ -210,7 +222,7 @@ export function step(s0: State, a: Action): State {
       p.board.push(u); c.fx.forEach(e => applyFx(s, i, e, u)); cleanup(s); checkWin(s); s.active = o(i); s.passes = 0;
     } else {
       const sp = c.speed ?? 'fast';
-      if (sp === 'burst' || sp === 'focus') { c.fx.forEach(e => applyFx(s, i, e, undefined, tgt)); cleanup(s); checkWin(s); } // no pasa prioridad
+      if (sp === 'burst' || sp === 'focus') { c.fx.forEach(e => applyFx(s, i, e, undefined, tgt)); cleanup(s); checkWin(s); fixBlocks(s); } // no pasa prioridad
       else { s.resumePhase = s.phase === 'stack' ? s.resumePhase : (s.phase as 'main' | 'block'); s.stack.push({ card: id, owner: i, target: tgt?.uid }); s.phase = 'stack'; s.active = o(i); s.passes = 0; }
     }
   } else if (a.type === 'pass' || a.type === 'confirmBlocks') {

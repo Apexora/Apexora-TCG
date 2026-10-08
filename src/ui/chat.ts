@@ -15,6 +15,7 @@ export class LocalChannel implements ChatChannel {
   private last = 0;
   onMessage(cb: (m: ChatMsg) => void) { this.cbs.push(cb); }
   private emit(m: ChatMsg) { this.cbs.forEach(cb => cb(m)); }
+  push(m: ChatMsg) { this.emit(m); }
   sys(text: string) { this.emit({ from: '', text, side: 'sys' }); }
   send(text: string) {
     this.emit({ from: 'Tú', text, side: 'me' });
