@@ -31,6 +31,7 @@ const SPD: Record<SpellSpeed, string> = {
 const esc = (t: string) => t.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
 const newS = () => newGame([DECKS.Luminarae, DECKS.Umbra], Date.now());
 let s: State = newS();
+let duel: { atk: number; blk: number | null; strike: boolean; def: number; cap: string } | null = null, dueling = false;
 let sel = new Set<number>(), mulSel = new Set<number>(), chatOpen = false, busy = false, ended = false, gameId = 0;
 let tgt: { hand: number; kind: 'enemy' | 'ally' } | null = null, selAtk: number | null = null, pend: { side: number; idx: number[] } | null = null;
 let prev = [20, 20], seen = new Set<number>(), prevPlayed = [0, 0], lastRound = 0, prevHp = new Map<number, [number, number]>(), lastBoard: number[][] = [[], []], prevS: State = s;
@@ -136,6 +137,63 @@ function report(b: State, a: State) {
   const d = document.createElement('div'); d.className = 'vfx report' + (at ? '' : ' good'); d.textContent = txt; document.body.append(d); setTimeout(() => d.remove(), 3600); chat.sys(txt);
 }
 
+// ---------- Combate: los enfrentamientos se resuelven de uno en uno ----------
+// El motor resuelve todo de golpe; aquí solo se presenta pareja a pareja (el estado final es siempre el del motor).
+const resolvesCombat = (a: State, b: State) => a !== b && a.phase === 'block' && a.attackers.length > 0 && b.attackers.length === 0 && a.round === b.round;
+function playCombat(b: State, a: State, done: () => void) {
+  const gid = gameId, T = b.token, D = 1 - T;
+  const order = b.attackers.filter(uid => b.p[T].board.some(u => u.uid === uid)).map(uid => ({ uid, bid: b.blocks[String(uid)] as number | undefined }));
+  if (!order.length) { done(); return; }
+  // reparto estimado del daño al Nexo entre parejas (la suma coincide con el real)
+  const total = Math.max(0, b.p[D].nexus - a.p[D].nexus);
+  const est = order.map(({ uid, bid }) => {
+    const u = b.p[T].board.find(x => x.uid === uid)!, bl = bid !== undefined ? b.p[D].board.find(x => x.uid === bid) : undefined;
+    if (!bl) return bid === undefined || u.kw.includes('arrollar') ? atkOf(u) : 0;
+    return u.kw.includes('arrollar') ? Math.max(0, atkOf(u) - curHp(bl) - (bl.kw.includes('duro') ? 1 : 0)) : 0;
+  });
+  const sum = est.reduce((x, y) => x + y, 0), share: number[] = []; let given = 0;
+  est.forEach((e, i) => { const v = i === est.length - 1 ? total - given : sum ? Math.round(e / sum * total) : 0; share.push(Math.max(0, v)); given += share[i]; });
+  const hyb = (k: number): State => {
+    const h = structuredClone(b), done = new Set<number>();
+    order.slice(0, k + 1).forEach(({ uid, bid }) => { done.add(uid); if (bid !== undefined) done.add(bid); });
+    for (const sd of [0, 1]) {
+      h.p[sd].board = h.p[sd].board.filter(u => !done.has(u.uid) || a.p[sd].board.some(x => x.uid === u.uid));
+      h.p[sd].board.forEach(u => { if (done.has(u.uid)) { const x = a.p[sd].board.find(y => y.uid === u.uid); if (x) Object.assign(u, x); } });
+    }
+    h.p[D].nexus = b.p[D].nexus - share.slice(0, k + 1).reduce((x, y) => x + y, 0);
+    h.attackers = order.slice(k + 1).map(o => o.uid); h.blocks = {};
+    h.attackers.forEach(uid => { const bid = b.blocks[String(uid)]; if (bid !== undefined && h.p[D].board.some(u => u.uid === bid)) h.blocks[String(uid)] = bid; });
+    h.forced = h.forced.filter(f => h.attackers.includes(f));
+    return h;
+  };
+  const k0 = order.length > 3 ? 0.7 : 1, FOCUS = 480 * k0, STRIKE = 340, SETTLE = 850 * k0;
+  dueling = true; sel.clear(); tgt = null; selAtk = null;
+  const finish = () => { duel = null; dueling = false; report(b, a); done(); };
+  const run = (k: number) => {
+    if (gid !== gameId) { duel = null; dueling = false; return; }
+    if (k >= order.length) { finish(); return; }
+    const { uid, bid } = order[k], bl = bid !== undefined ? b.p[D].board.find(u => u.uid === bid) : undefined, at = b.p[T].board.find(u => u.uid === uid)!;
+    s = k ? hyb(k - 1) : b;
+    duel = { atk: uid, blk: bl ? bl.uid : null, strike: false, def: D, cap: `⚔ Duelo ${k + 1}/${order.length} · ${esc(nameOf(at.card))} ${bl ? 'contra ' + esc(nameOf(bl.card)) : '→ directo al Nexo'}` };
+    render();
+    setTimeout(() => {
+      if (gid !== gameId) { duel = null; dueling = false; return; }
+      duel!.strike = true; sfx('attack'); render();
+      setTimeout(() => {
+        if (gid !== gameId) { duel = null; dueling = false; return; }
+        s = hyb(k); duel!.strike = false; render();
+        setTimeout(() => run(k + 1), SETTLE);
+      }, STRIKE);
+    }, FOCUS);
+  };
+  run(0);
+}
+function commit(n: State) {
+  sel.clear(); tgt = null; selAtk = null;
+  if (resolvesCombat(s, n)) { busy = true; playCombat(s, n, () => { busy = false; s = n; render(); loop(); }); return; }
+  s = n; render(); loop();
+}
+
 // ---------- Render ----------
 function render() {
   if (s.round !== lastRound && s.round > 0 && s.phase !== 'mulligan') { drawUntil = Date.now() + 1400; setTimeout(() => render(), 1450); }
@@ -156,7 +214,7 @@ function render() {
     const valid = tgt && ((tgt.kind === 'enemy' && !mine) || (tgt.kind === 'ally' && mine));
     const a = valid ? 'tgt' : mine ? 'unit' : defMe && atkSet.has(u.uid) ? 'enemy-unit' : 'view';
     const can = mine && myTurn && s.phase === 'main' && s.tok[0] && !s.attackers.length;
-    const cls = `mini ${sel.has(i) && mine ? 'sel ' : ''}${can ? 'can ' : ''}${seen.has(u.uid) ? '' : 'enter '}${fc} ${valid ? 'tgtok ' : ''}${!mine && selAtk === i ? 'blocktarget ' : ''}${mine && blockers.has(u.uid) ? 'assignedblock ' : ''}${s.forced.includes(u.uid) || (s.forced.some(f => s.blocks[String(f)] === u.uid)) ? 'forced ' : ''}${atkSet.has(u.uid) ? 'atkr ' : ''}${pend && pend.side === side && pend.idx.includes(i) ? 'attacking ' + (side ? 'down' : 'up') : ''}`;
+    const cls = `mini ${sel.has(i) && mine ? 'sel ' : ''}${can ? 'can ' : ''}${seen.has(u.uid) ? '' : 'enter '}${fc} ${valid ? 'tgtok ' : ''}${!mine && selAtk === i ? 'blocktarget ' : ''}${mine && blockers.has(u.uid) ? 'assignedblock ' : ''}${s.forced.includes(u.uid) || (s.forced.some(f => s.blocks[String(f)] === u.uid)) ? 'forced ' : ''}${atkSet.has(u.uid) ? 'atkr ' : ''}${pend && pend.side === side && pend.idx.includes(i) ? 'attacking ' + (side ? 'down' : 'up') : ''}${duel && u.uid === duel.atk ? 'duel duelatk ' + (duel.strike ? 'strike ' + (side ? 'sdown' : 'sup') : '') : duel && u.uid === duel.blk ? 'duel duelblk ' : ''}`;
     return card(u.card, `data-u="${side}:${i}" data-a="${a}" data-i="${i}" data-uid="${u.uid}"`, cls, u, fx ? `<span class="fx">${fx}</span>` : '');
   };
   const lanes = (p: Player, side: number) => {
@@ -201,7 +259,7 @@ function render() {
   const mullHTML = s.phase === 'mulligan' && s.mull[0] ? `<div class="mull"><h2>Mulligan</h2><p>Esperando al rival…</p></div>` : s.phase === 'mulligan' ? `<div class="mull"><h2>Mulligan</h2><p>Toca las cartas que quieras reemplazar (0 a 4)</p><div class="mrow">${me.hand.map((id, i) => card(id, `data-a="mul" data-i="${i}"`, mulSel.has(i) ? 'sel swap' : '')).join('')}</div><button class="btn" data-a="mulgo">${mulSel.size ? `Reemplazar ${mulSel.size}` : 'Conservar mano'}</button></div>` : '';
   app.innerHTML = `<header><div class="brand"><span class="brand-mark">✦</span><h1>Cartas <small>ALFA</small></h1></div><div class="header-state"><span class="rd">Ronda ${s.round}/40</span><span class="phase-chip">${phaseName}</span><span class="tok">${s.tok[0] ? '⚑ Tienes la ficha de ataque' : s.tok[1] ? '⚑ Ficha de ataque: rival' : '⚑ Ficha gastada'}</span></div>
     <nav class="toolbar"><button class="ghost" data-a="chat">${chatOpen ? '✕ Cerrar' : '☰ Chat / registro'}</button><button class="ghost icon-btn" data-a="mute">${isMuted() ? '🔇' : '🔊'}</button><button class="ghost" data-a="menu">⌂ Menú</button><button class="ghost" data-a="online">🌐 Online</button><button class="ghost" data-a="new">↻ Nueva partida</button></nav></header>` +
-    `<main class="stage ${tgt ? 'targeting' : ''}">
+    `<main class="stage ${tgt ? 'targeting' : ''}${dueling ? ' dueling' : ''}" data-dnex="${duel && duel.blk === null ? duel.def : ''}">${duel ? `<div class="duelcap">${duel.cap}</div>` : ''}
       <div class="foehand">${Array.from({ length: foe.hand.length }, () => '<i></i>').join('')}</div>
       <div class="plane-wrap"><div class="plane"><div class="lane foeback">${F.back}</div><div class="lane foecomb">${F.comb}</div><div class="lane mycomb">${M.comb}</div><div class="lane myback">${M.back}</div></div></div>
       
@@ -223,7 +281,7 @@ function render() {
   if (s.round !== lastRound && s.round > 0) { vfx('banner', `Ronda ${s.round}`); sfx('round'); if (me.spell > prevSpell) setTimeout(() => toast(`✦ +${me.spell - prevSpell} reserva de hechizo (maná sobrante)`), 1500); }
   if (s.active === 0 && prevActive !== 0 && !busy && s.winner === null && s.phase !== 'mulligan' && s.round === lastRound) { vfx('banner small turn', defMe ? '🛡 Tu turno · bloquea' : '⚡ Tu turno'); sfx('round'); }
   prevActive = s.phase === 'mulligan' ? -1 : s.active; prevSpell = me.spell;
-  if (prevS.attackers.length && !s.attackers.length && prevS.round === s.round) report(prevS, s);
+  if (!dueling && prevS.attackers.length && !s.attackers.length && prevS.round === s.round) report(prevS, s);
   prev = [me.nexus, foe.nexus]; prevPlayed = s.p.map(p => p.played.length); lastRound = s.round; prevS = s;
   prevHp = new Map(); lastBoard = [[], []];
   s.p.forEach((p, i) => p.board.forEach(u => { seen.add(u.uid); prevHp.set(u.uid, [atkOf(u), curHp(u)]); lastBoard[i].push(u.uid); }));
@@ -245,7 +303,7 @@ function dispatch(a: Action) {
   const n = step(s, a);
   if (n === s) { toast(a.type === 'block' ? 'Ese bloqueo no es válido (Elusivo/Temible/ya asignado)' : a.type === 'play' ? 'No puedes jugar eso ahora' : 'Acción no válida'); return; }
   if (a.type === 'pass' || a.type === 'confirmBlocks') sfx('pass');
-  s = n; sel.clear(); tgt = null; selAtk = null; render(); loop();
+  commit(n);
 }
 function loop() {
   if (online) return;
@@ -256,7 +314,7 @@ function loop() {
     if (reading) { setTimeout(tick, 300); return; }   // la IA espera a que leas su carta
     const a = aiAction(s);
     if (a.type === 'attack') { runAttack(a.units, 1); return; }
-    s = step(s, a); render(); loop();
+    commit(step(s, a));
   };
   setTimeout(tick, 1200);
 }
@@ -331,7 +389,8 @@ function pump() {
   if (!m) { pumping = false; return; }
   pumping = true;
   const after = view(applyMove(m.before, m.seat, m.action), ME);
-  const apply = () => { pend = null; busy = false; s = after; sel.clear(); tgt = null; selAtk = null; render(); setTimeout(pump, 0); };
+  const finish = () => { pend = null; busy = false; s = after; sel.clear(); tgt = null; selAtk = null; render(); setTimeout(pump, 0); };
+  const apply = () => { if (resolvesCombat(s, after) && queue.length === 0) { busy = true; pend = null; playCombat(s, after, finish); } else finish(); };
   if (m.action.type === 'attack' && queue.length === 0) {         // animar solo la jugada más reciente (al reconectar no se reproducen todas)
     const side = m.seat === ME ? 0 : 1; busy = true; pend = { side, idx: m.action.units }; sfx('attack');
     vfx('banner small', `⚔ ${side ? 'El rival ataca' : 'Atacas'} con ${m.action.units.length}`); render(); setTimeout(apply, 900);
