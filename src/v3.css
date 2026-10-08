@@ -211,3 +211,14 @@
 #title .t-go.alt:hover,#title .t-go.alt:focus-visible{color:#04211a;background:linear-gradient(#8ffbe6,#2cf0c4);box-shadow:inset 0 0 0 1px #8ffbe6;filter:drop-shadow(0 0 18px #2cf0c4aa)}
 #title .t-hint{color:#b8b0c199;font-size:11px;letter-spacing:.3em;text-transform:uppercase;margin-top:26px}
 @media(max-width:800px){.t-art{width:70vw;opacity:.18}#title::before{inset:10px}#title .t-kicker{letter-spacing:.3em;font-size:10px}#title .t-sub span{letter-spacing:.6em}#title .t-go{padding:15px 26px;font-size:12px;letter-spacing:.16em}}
+
+/* ===== Golpe al Nexo ===== */
+.dmgnum{position:fixed;z-index:59;pointer-events:none;transform:translate(-50%,-50%);font:800 clamp(56px,6.4vw,100px) Cinzel,serif;color:#fff;-webkit-text-stroke:2px #7a0a14;paint-order:stroke fill;text-shadow:0 0 26px #ff3a4a,0 6px 0 #4a0710;animation:dmgpop 1.45s cubic-bezier(.2,.9,.3,1) forwards}
+.dmgnum.foe{color:#fff0b8;-webkit-text-stroke-color:#7a3a0a;text-shadow:0 0 26px #ffb04a,0 6px 0 #4a2407}
+@keyframes dmgpop{0%{opacity:0;transform:translate(-50%,-50%) scale(.2)}14%{opacity:1;transform:translate(-50%,-50%) scale(1.6) rotate(-4deg)}28%{transform:translate(-50%,-50%) scale(1) rotate(2deg)}75%{opacity:1;transform:translate(-50%,-90%) scale(1)}100%{opacity:0;transform:translate(-50%,-150%) scale(.9)}}
+.nexflash{position:fixed;inset:0;z-index:57;pointer-events:none;animation:nexf .85s ease-out forwards}
+.nexflash.mine{background:radial-gradient(ellipse at 50% 55%,#ff1a2a22 20%,#c1121f88 75%,#ff0f2acc 120%);box-shadow:inset 0 0 160px 50px #ff1a2a}
+.nexflash.foe{background:radial-gradient(ellipse at 50% 40%,#ffd36e18 20%,#ff7a3a55 80%);box-shadow:inset 0 0 120px 30px #ff7a3a99}
+@keyframes nexf{0%{opacity:1}100%{opacity:0}}
+.pt:has(.orb.hit) .ava{animation:avahit .7s cubic-bezier(.2,.9,.3,1.2)}
+@keyframes avahit{0%{filter:brightness(3) saturate(0);transform:scale(1.18)}25%{transform:translateX(-7px) rotate(-3deg);filter:brightness(1.6) sepia(1) hue-rotate(-30deg) saturate(4)}50%{transform:translateX(6px) rotate(2deg)}75%{transform:translateX(-3px)}100%{filter:none;transform:none}}

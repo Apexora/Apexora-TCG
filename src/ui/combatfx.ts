@@ -145,6 +145,35 @@ function castUmb(cx: number, cy: number, Rd: number) {
   });
 }
 
+
+// ---------- golpe al Nexo: grande, con número y sacudida ----------
+function dmgNum(x: number, y: number, txt: string, cls: string) {
+  const d = document.createElement('div'); d.className = 'dmgnum ' + cls; d.textContent = txt; d.style.left = x + 'px'; d.style.top = y + 'px';
+  document.body.append(d); setTimeout(() => d.remove(), 1500);
+}
+function nexusHit(e: HTMLElement, orb: DOMRect) {
+  const pt = e.closest('.pt'), av = pt?.querySelector('.ava'), ar = av ? rect(av) : orb, mine = !!pt?.classList.contains('me');
+  const txt = (e.querySelector('.fx')?.textContent ?? '').trim(), n = Math.abs(parseInt(txt.replace(/[^\d-]/g, ''), 10) || 3);
+  const pw = Math.min(2, .8 + n * .13), x = ar.left + ar.width / 2, y = ar.top + ar.height / 2, S = ar.width * 2.3 * pw;
+  add({ k: 'glow', x, y, sz: S * 1.35, gr: .9, life: 560, h: 358, l: 62, a: 1 });
+  add({ k: 'glow', x, y, sz: S * .55, gr: .4, life: 240, h: 40, s: 30, l: 97, a: 1 });
+  add({ k: 'ring', x, y, sz: S * .15, gr: S * 1.7, w: 14, life: 760, h: 355, l: 62 });
+  add({ k: 'ring', x, y, sz: S * .1, gr: S * 1.2, w: 7, life: 700, delay: 80, h: 25, l: 68 });
+  add({ k: 'ring', x, y, sz: S * .1, gr: S * 2.4, w: 3, life: 900, delay: 170, h: 350, l: 70 });
+  slash(x, y, S * .95, 'fire', -.75); slash(x, y, S * .95, 'umb', .75);
+  for (let i = 0; i < 16; i++) { const a = i / 16 * 6.283 + rr(-.1, .1); sparks(x, y, 1, 'fire', S * .26, { rot: a, life: rr(380, 620), sz: 3.4 }); }
+  sparks(x, y, Math.round(60 * pw), 'fire', S * .12);
+  sparks(x, y, 24, 'umb', S * .1);
+  for (let i = 0; i < 16; i++) { const a = R() * 6.283, sp = rr(3, 9) * S / 140;
+    add({ k: 'shard', x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 2, g: .24, d: .975, rot: R() * 6, vr: rr(-.3, .3), sz: S * rr(.05, .11), life: rr(600, 1000), h: i % 3 ? 355 : 28, l: 60 }); }
+  for (let i = 0; i < 5; i++) add({ k: 'smoke', x: x + rr(-14, 14), y, vx: rr(-.8, .8), vy: rr(-1, -.2), d: .985, sz: S * rr(.3, .5), gr: 1.1, life: rr(900, 1300), a: .35, h: 355, s: 50, l: 22, add: false });
+  later(140, () => { impact(x, y, S * .6, 'fire', 1); sparks(x, y, 30, 'fire', S * .14); });
+  // flash de pantalla + sacudida + número grande
+  const f = document.createElement('div'); f.className = 'nexflash' + (mine ? ' mine' : ' foe'); document.body.append(f); setTimeout(() => f.remove(), 900);
+  const app = document.getElementById('app'); if (app) { app.classList.remove('shk-soft', 'shk-hard'); void app.offsetWidth; app.classList.add('shk-hard'); }
+  dmgNum(x, y - ar.height * .15, txt || '−' + n, mine ? 'mine' : 'foe');
+}
+
 // ---------- observador del DOM ----------
 const seen = new Map<string, number>();
 const fresh = (key: string, ms: number) => { const n = performance.now(); if (n - (seen.get(key) ?? -1e9) < ms) return false; seen.set(key, n); if (seen.size > 80) seen.clear(); return true; };
@@ -181,8 +210,7 @@ function handle(e: HTMLElement) {
     for (let i = 0; i < 16; i++) add({ k: 'glow', x: x + rr(-r.width * .4, r.width * .4), y: y + r.height * .35, vy: -rr(1, 3.2), g: -.02, d: .99, sz: rr(3, 6), life: rr(600, 1000), delay: R() * 250, h: R() < .5 ? 145 : 48, l: 78, a: .9 });
   } else if (cl.contains('orb') && cl.contains('hit')) {
     if (!fresh('oh' + key, 700)) return;
-    const n = Math.abs(parseInt((e.querySelector('.fx')?.textContent ?? '3').replace(/[^\d-]/g, ''), 10) || 3), pw = Math.min(1.9, .8 + n * .12);
-    impact(x, y, r.width * 1.7 * pw, 'fire', pw + .3); impact(x, y, r.width * 1.1, 'umb', .5);
+    nexusHit(e, r);
   } else if (cl.contains('orb') && cl.contains('heal')) {
     if (!fresh('oe' + key, 700)) return;
     add({ k: 'ring', x, y, sz: r.width * .3, gr: r.width * 1.5, w: 5, life: 700, h: 145, l: 74 });
