@@ -148,6 +148,21 @@ export function clashFx(ix: number, iy: number, w: number, f: Pal) {
   add({ k: 'glow', x: ix, y: iy, sz: w * 1.3, gr: .5, life: 260, h: 48, s: 40, l: 96, a: 1 });
   impact(ix, iy, w * 1.15, f, 1.4); impact(ix, iy, w * .7, 'fire', 1); shake();
 }
+/** Estela de luz que sigue a la carta en vuelo (interpola entre fotogramas para que no queden huecos a alta velocidad). */
+export function trailFx(el: HTMLElement, ms: number, f: Pal) {
+  if (!ctx) return;
+  const t0 = performance.now(); let px = NaN, py = NaN;
+  const step = () => {
+    if (!el.isConnected || performance.now() - t0 > ms) return;
+    const r = rect(el), x = r.left + r.width / 2, y = r.top + r.height / 2, w = r.width;
+    if (!isNaN(px)) { const d = Math.hypot(x - px, y - py), n = Math.min(14, Math.ceil(d / (w * .16)));
+      if (d > 1.5) for (let i = 1; i <= n; i++) { const u = i / n, gx = px + (x - px) * u, gy = py + (y - py) * u;
+        add({ k: 'glow', x: gx, y: gy, sz: w * rr(.42, .6), gr: -.35, life: 360, h: hue(f, i % 2), l: 68, a: .42 });
+        if (R() < .4) add({ k: 'spark', x: gx + rr(-w * .3, w * .3), y: gy + rr(-w * .3, w * .3), vx: -(x - px) * .08, vy: -(y - py) * .08, g: 0, d: .92, life: rr(260, 440), sz: 1.8, h: hue(f), l: 78 }); } }
+    px = x; py = y; requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
 // ---------- hechizos ----------
 function castLum(cx: number, cy: number, Rd: number) {
   add({ k: 'glow', x: cx, y: cy, sz: Rd * .9, gr: .6, life: 1100, h: 46, l: 82, a: .55 });

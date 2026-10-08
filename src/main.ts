@@ -8,7 +8,7 @@ import { atkOf, canPlay, curHp, newGame, step, targetKind } from './engine/engin
 import type { Action, Keyword, Player, SpellSpeed, State, Unit } from './engine/types';
 import { imageOf, nameOf } from './ui/skins';
 import { epicEntrance, isFlagship } from './ui/epic';
-import { clashFx } from './ui/combatfx';
+import { clashFx, trailFx } from './ui/combatfx';
 import { LocalChannel } from './ui/chat';
 import { isMuted, setTension, sfx, sfxCard, toggleMute } from './ui/sound';
 import { Online } from './net/online';
@@ -168,7 +168,7 @@ function playCombat(b: State, a: State, done: () => void) {
     h.forced = h.forced.filter(f => h.attackers.includes(f));
     return h;
   };
-  const k0 = order.length > 3 ? 0.7 : 1, FOCUS = 480 * k0, STRIKE = 340, SETTLE = 850 * k0;
+  const k0 = order.length > 3 ? 0.7 : 1, FOCUS = 480 * k0, STRIKE = 340, SETTLE = 760 * k0;
   dueling = true; sel.clear(); tgt = null; selAtk = null;
   const finish = () => { duel = null; dueling = false; report(b, a); done(); };
   const run = (k: number) => {
@@ -180,28 +180,33 @@ function playCombat(b: State, a: State, done: () => void) {
     render();
     setTimeout(() => {
       if (gid !== gameId) { duel = null; dueling = false; return; }
-      const ea = document.querySelector<HTMLElement>(`[data-uid="${uid}"]`), eb = bl ? document.querySelector<HTMLElement>(`[data-uid="${bl.uid}"]`) : null;
-      const GO = 380, BACK = 420, alive = a.p[T].board.some(u => u.uid === uid);
+      // Objetivo: la carta que bloquea o, si no hay bloqueo, el avatar del Nexo defensor
+      const ea = document.querySelector<HTMLElement>(`[data-uid="${uid}"]`),
+        eb = bl ? document.querySelector<HTMLElement>(`[data-uid="${bl.uid}"]`) : document.querySelector<HTMLElement>(`.pt.${D === 0 ? 'me' : 'foe'} .ava`);
+      const WIND = 150, DASH = 330, HOLD = 70, BACK = 560, GO = WIND + DASH, tot = GO + HOLD + BACK, alive = a.p[T].board.some(u => u.uid === uid), fac = at.card.startsWith('umb') ? 'umb' : 'lum';
       if (ea && eb) {
-        // Una sola animación continua (ida con ease-in-out, golpe y vuelta con ease-in-out) sobre una copia fija en pantalla:
-        // los renders intermedios no la cortan. El original se oculta mientras dura.
+        // Una sola animación continua sobre una copia fija en pantalla (los renders intermedios no la cortan):
+        // carga breve → embestida suave con estela → choque → regreso suave a su sitio. La original se oculta mientras dura.
         const A = ea.getBoundingClientRect(), B = eb.getBoundingClientRect(), dy0 = B.top + B.height / 2 - (A.top + A.height / 2), dir = Math.sign(dy0) || 1;
-        const dx = B.left + B.width / 2 - (A.left + A.width / 2), dy = dy0 - dir * ((A.height * 1.1 + B.height) / 2 - 4);
-        const fl = ea.cloneNode(true) as HTMLElement; fl.classList.remove('duel', 'duelatk', 'sel', 'can', 'enter'); fl.removeAttribute('data-a'); fl.removeAttribute('data-uid');
-        fl.style.cssText = `position:fixed;left:${A.left}px;top:${A.top}px;width:${A.width}px;height:${A.height}px;--w:${A.width}px;margin:0;z-index:80;pointer-events:none;will-change:transform;box-shadow:0 0 0 2px #ffd36e,0 0 34px #ffd36ecc`;
+        const dx = B.left + B.width / 2 - (A.left + A.width / 2), dy = dy0 - dir * ((A.height * 1.08 + B.height) / 2 - (bl ? 4 : 16));
+        const dist = Math.hypot(dx, dy) || 1, wx = -dx / dist * Math.min(26, dist * .09), wy = -dy / dist * Math.min(26, dist * .09);
+        const fl = ea.cloneNode(true) as HTMLElement; fl.classList.remove('duel', 'duelatk', 'sel', 'can', 'enter', 'atkr'); fl.removeAttribute('data-a'); fl.removeAttribute('data-uid');
+        fl.style.cssText = `position:fixed;left:${A.left}px;top:${A.top}px;width:${A.width}px;height:${A.height}px;--w:${A.width}px;margin:0;z-index:80;pointer-events:none;will-change:transform;box-shadow:0 0 0 2px #ffd36e,0 12px 30px #000a,0 0 30px #ffd36eaa`;
         document.body.append(fl); duel!.fly = true;
-        const tot = GO + BACK, o = GO / tot, c = `translate(${dx}px,${dy}px) scale(1.1)`;
+        const P = (ms: number) => ms / tot, T0 = 'translate(0,0) scale(1)', TC = `translate(${dx}px,${dy}px) scale(1.08)`;
         const an = fl.animate([
-          { transform: 'translate(0,0) scale(1)', easing: 'cubic-bezier(.65,0,.3,1)' },
-          { transform: c, offset: o, easing: 'cubic-bezier(.65,0,.3,1)' },
-          { transform: 'translate(0,0) scale(1)' },
+          { transform: T0, offset: 0, easing: 'cubic-bezier(.3,0,.4,1)' },
+          { transform: `translate(${wx}px,${wy}px) scale(1.05)`, offset: P(WIND), easing: 'cubic-bezier(.6,0,.25,1)' },   // ease-in-out hacia el objetivo
+          { transform: TC, offset: P(GO), easing: 'linear' },
+          { transform: TC, offset: P(GO + HOLD), easing: 'cubic-bezier(.45,0,.2,1)' },                                  // regreso ease-in-out
+          { transform: T0, offset: 1 },
         ], { duration: tot, fill: 'forwards' });
+        trailFx(fl, WIND + DASH + 40, fac);
         an.onfinish = () => { fl.remove(); if (duel && duel.atk === uid) { duel.fly = false; render(); } };
         setTimeout(() => {
-          if (!alive) { fl.remove(); if (duel && duel.atk === uid) duel.fly = false; }
-          clashFx(B.left + B.width / 2, B.top + B.height / 2 - dir * B.height / 2 + dir * 4, A.width, at.card.startsWith('umb') ? 'umb' : 'lum');
-          const nb = bl && document.querySelector<HTMLElement>(`[data-uid="${bl.uid}"]`);
-          nb?.animate([{ transform: 'scale(1.08)' }, { transform: `translateY(${dir * 16}px) rotate(${dir * 3}deg) scale(1.02)`, filter: 'brightness(2.2)', offset: .3 }, { transform: 'scale(1.08)' }], { duration: 340, easing: 'ease-out' });
+          if (!alive) { an.cancel(); fl.remove(); if (duel && duel.atk === uid) duel.fly = false; }
+          clashFx(B.left + B.width / 2, B.top + B.height / 2 - dir * B.height / 2 + dir * 4, A.width, fac);
+          if (bl) document.querySelector<HTMLElement>(`[data-uid="${bl.uid}"]`)?.animate([{ transform: 'scale(1.08)' }, { transform: `translateY(${dir * 16}px) rotate(${dir * 3}deg) scale(1.02)`, filter: 'brightness(2.2)', offset: .3 }, { transform: 'scale(1.08)' }], { duration: 340, easing: 'ease-out' });
         }, GO);
       }
       duel!.strike = true; sfx('attack'); render();
