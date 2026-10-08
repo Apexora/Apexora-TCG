@@ -142,6 +142,12 @@ function shatter(src: HTMLElement, r: DOMRect, pal: Pal, power: number) {
   add({ k: 'ring', x: cx, y: cy, sz: w * .2, gr: w * 1.2 * power, w: 6, life: 520, h: hue(pal), l: 78 });
 }
 
+/** Impacto del choque atacante→defensora en el punto de contacto (lo llama main.ts al llegar). */
+export function clashFx(ix: number, iy: number, w: number, f: Pal) {
+  if (!ctx) return;
+  add({ k: 'glow', x: ix, y: iy, sz: w * 1.3, gr: .5, life: 260, h: 48, s: 40, l: 96, a: 1 });
+  impact(ix, iy, w * 1.15, f, 1.4); impact(ix, iy, w * .7, 'fire', 1); shake();
+}
 // ---------- hechizos ----------
 function castLum(cx: number, cy: number, Rd: number) {
   add({ k: 'glow', x: cx, y: cy, sz: Rd * .9, gr: .6, life: 1100, h: 46, l: 82, a: .55 });
@@ -229,13 +235,6 @@ function handle(e: HTMLElement) {
       add({ k: 'ring', x: ix, y: iy, sz: w * .1, gr: w * .95, w: 6, life: 380, h: hue(f), l: 76 });
       slash(ix, iy, w * .75, f, dir < 0 ? rr(-2.5, -2.1) : rr(.55, 1.0));
     });
-  } else if (cl.contains('card') && cl.contains('strike') && cl.contains('clash')) {
-    // la atacante choca contra la defensora: impacto en el punto de contacto
-    const tg = document.querySelector<HTMLElement>('.card.duelblk'); if (!tg) return;
-    const f = facOf(e), B = rect(tg), dir = Math.sign(B.top + B.height / 2 - y) || 1, w = r.width;
-    later(250, () => { const ix = B.left + B.width / 2, iy = B.top + B.height / 2 - dir * B.height / 2 + dir * 4;
-      add({ k: 'glow', x: ix, y: iy, sz: w * 1.3, gr: .5, life: 260, h: 48, s: 40, l: 96, a: 1 });
-      impact(ix, iy, w * 1.15, f, 1.4); impact(ix, iy, w * .7, 'fire', 1); shake(); });
   } else if (cl.contains('card') && cl.contains('dying')) {
     if (!fresh('d' + key, 900)) return;
     const f = facOf(e), w = r.width, bySpell = performance.now() - castAt < 2200, pf = bySpell ? castPal : f;
@@ -262,7 +261,7 @@ function handle(e: HTMLElement) {
   }
 }
 
-const SEL = '.card.strike.clash,.card.attacking,.card.dying,.card.hurt,.card.boost,.orb.hit,.orb.heal,.vfx.cast';
+const SEL = '.card.attacking,.card.dying,.card.hurt,.card.boost,.orb.hit,.orb.heal,.vfx.cast';
 export function initCombatFx() {
   if (matchMedia('(prefers-reduced-motion:reduce)').matches) return;
   cv = document.createElement('canvas'); cv.id = 'combatfx'; document.body.append(cv); ctx = cv.getContext('2d')!;

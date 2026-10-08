@@ -8,6 +8,7 @@ import { atkOf, canPlay, curHp, newGame, step, targetKind } from './engine/engin
 import type { Action, Keyword, Player, SpellSpeed, State, Unit } from './engine/types';
 import { imageOf, nameOf } from './ui/skins';
 import { epicEntrance, isFlagship } from './ui/epic';
+import { clashFx } from './ui/combatfx';
 import { LocalChannel } from './ui/chat';
 import { isMuted, setTension, sfx, sfxCard, toggleMute } from './ui/sound';
 import { Online } from './net/online';
@@ -32,7 +33,7 @@ const SPD: Record<SpellSpeed, string> = {
 const esc = (t: string) => t.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
 const newS = () => newGame([DECKS.Luminarae, DECKS.Umbra], Date.now());
 let s: State = newS();
-let duel: { atk: number; blk: number | null; strike: boolean; def: number; cap: string; dx?: number; dy?: number; dir?: number; back?: boolean } | null = null, dueling = false;
+let duel: { atk: number; blk: number | null; strike: boolean; def: number; cap: string; fly?: boolean } | null = null, dueling = false;
 let sel = new Set<number>(), mulSel = new Set<number>(), chatOpen = false, busy = false, ended = false, gameId = 0;
 let tgt: { hand: number; kind: 'enemy' | 'ally' } | null = null, selAtk: number | null = null, pend: { side: number; idx: number[] } | null = null;
 let prev = [20, 20], seen = new Set<number>(), prevPlayed = [0, 0], lastRound = 0, prevHp = new Map<number, [number, number]>(), lastBoard: number[][] = [[], []], prevS: State = s;
@@ -180,17 +181,35 @@ function playCombat(b: State, a: State, done: () => void) {
     setTimeout(() => {
       if (gid !== gameId) { duel = null; dueling = false; return; }
       const ea = document.querySelector<HTMLElement>(`[data-uid="${uid}"]`), eb = bl ? document.querySelector<HTMLElement>(`[data-uid="${bl.uid}"]`) : null;
-      if (ea && eb) {   // la atacante se desliza hasta CHOCAR con la defensora (se detiene al tocarla, no la atraviesa)
+      const GO = 380, BACK = 420, alive = a.p[T].board.some(u => u.uid === uid);
+      if (ea && eb) {
+        // Una sola animación continua (ida con ease-in-out, golpe y vuelta con ease-in-out) sobre una copia fija en pantalla:
+        // los renders intermedios no la cortan. El original se oculta mientras dura.
         const A = ea.getBoundingClientRect(), B = eb.getBoundingClientRect(), dy0 = B.top + B.height / 2 - (A.top + A.height / 2), dir = Math.sign(dy0) || 1;
-        duel!.dx = B.left + B.width / 2 - (A.left + A.width / 2); duel!.dir = dir;
-        duel!.dy = dy0 - dir * ((A.height / 1.12 * 1.2 + B.height / 1.08) / 2 - 4);
+        const dx = B.left + B.width / 2 - (A.left + A.width / 2), dy = dy0 - dir * ((A.height * 1.1 + B.height) / 2 - 4);
+        const fl = ea.cloneNode(true) as HTMLElement; fl.classList.remove('duel', 'duelatk', 'sel', 'can', 'enter'); fl.removeAttribute('data-a'); fl.removeAttribute('data-uid');
+        fl.style.cssText = `position:fixed;left:${A.left}px;top:${A.top}px;width:${A.width}px;height:${A.height}px;--w:${A.width}px;margin:0;z-index:80;pointer-events:none;will-change:transform;box-shadow:0 0 0 2px #ffd36e,0 0 34px #ffd36ecc`;
+        document.body.append(fl); duel!.fly = true;
+        const tot = GO + BACK, o = GO / tot, c = `translate(${dx}px,${dy}px) scale(1.1)`;
+        const an = fl.animate([
+          { transform: 'translate(0,0) scale(1)', easing: 'cubic-bezier(.65,0,.3,1)' },
+          { transform: c, offset: o, easing: 'cubic-bezier(.65,0,.3,1)' },
+          { transform: 'translate(0,0) scale(1)' },
+        ], { duration: tot, fill: 'forwards' });
+        an.onfinish = () => { fl.remove(); if (duel && duel.atk === uid) { duel.fly = false; render(); } };
+        setTimeout(() => {
+          if (!alive) { fl.remove(); if (duel && duel.atk === uid) duel.fly = false; }
+          clashFx(B.left + B.width / 2, B.top + B.height / 2 - dir * B.height / 2 + dir * 4, A.width, at.card.startsWith('umb') ? 'umb' : 'lum');
+          const nb = bl && document.querySelector<HTMLElement>(`[data-uid="${bl.uid}"]`);
+          nb?.animate([{ transform: 'scale(1.08)' }, { transform: `translateY(${dir * 16}px) rotate(${dir * 3}deg) scale(1.02)`, filter: 'brightness(2.2)', offset: .3 }, { transform: 'scale(1.08)' }], { duration: 340, easing: 'ease-out' });
+        }, GO);
       }
       duel!.strike = true; sfx('attack'); render();
       setTimeout(() => {
         if (gid !== gameId) { duel = null; dueling = false; return; }
-        s = hyb(k); duel!.strike = false; duel!.back = duel!.dx !== undefined; render();
+        s = hyb(k); duel!.strike = false; render();
         setTimeout(() => run(k + 1), SETTLE);
-      }, STRIKE);
+      }, ea && eb ? GO : STRIKE);
     }, FOCUS);
   };
   run(0);
@@ -221,9 +240,8 @@ function render() {
     const valid = tgt && ((tgt.kind === 'enemy' && !mine) || (tgt.kind === 'ally' && mine));
     const a = valid ? 'tgt' : mine ? 'unit' : defMe && atkSet.has(u.uid) ? 'enemy-unit' : 'view';
     const can = mine && myTurn && s.phase === 'main' && s.tok[0] && !s.attackers.length;
-    const cls = `mini ${sel.has(i) && mine ? 'sel ' : ''}${can ? 'can ' : ''}${seen.has(u.uid) ? '' : 'enter '}${fc} ${valid ? 'tgtok ' : ''}${!mine && selAtk === i ? 'blocktarget ' : ''}${mine && blockers.has(u.uid) ? 'assignedblock ' : ''}${s.forced.includes(u.uid) || (s.forced.some(f => s.blocks[String(f)] === u.uid)) ? 'forced ' : ''}${atkSet.has(u.uid) ? 'atkr ' : ''}${pend && pend.side === side && pend.idx.includes(i) ? 'attacking ' + (side ? 'down' : 'up') : ''}${duel && u.uid === duel.atk ? 'duel duelatk ' + (duel.strike ? 'strike ' + (duel.dx !== undefined ? 'clash ' : '') + (side ? 'sdown' : 'sup') : duel.back ? 'back ' : '') : duel && u.uid === duel.blk ? 'duel duelblk ' + (duel.strike && duel.dx !== undefined ? 'hit ' : '') : ''}`;
-    const st = duel && duel.dx !== undefined && ((u.uid === duel.atk && (duel.strike || duel.back)) || (u.uid === duel.blk && duel.strike)) ? ` style="--dx:${duel.dx!.toFixed(1)}px;--dy:${duel.dy!.toFixed(1)}px;--dir:${duel.dir}"` : '';
-    return card(u.card, `data-u="${side}:${i}" data-a="${a}" data-i="${i}" data-uid="${u.uid}"${st}`, cls, u, fx ? `<span class="fx">${fx}</span>` : '');
+    const cls = `mini ${sel.has(i) && mine ? 'sel ' : ''}${can ? 'can ' : ''}${seen.has(u.uid) ? '' : 'enter '}${fc} ${valid ? 'tgtok ' : ''}${!mine && selAtk === i ? 'blocktarget ' : ''}${mine && blockers.has(u.uid) ? 'assignedblock ' : ''}${s.forced.includes(u.uid) || (s.forced.some(f => s.blocks[String(f)] === u.uid)) ? 'forced ' : ''}${atkSet.has(u.uid) ? 'atkr ' : ''}${pend && pend.side === side && pend.idx.includes(i) ? 'attacking ' + (side ? 'down' : 'up') : ''}${duel && u.uid === duel.atk ? 'duel duelatk ' + (duel.fly ? 'fly ' : '') : duel && u.uid === duel.blk ? 'duel duelblk ' : ''}`;
+    return card(u.card, `data-u="${side}:${i}" data-a="${a}" data-i="${i}" data-uid="${u.uid}"`, cls, u, fx ? `<span class="fx">${fx}</span>` : '');
   };
   const lanes = (p: Player, side: number) => {
     const back: string[] = [], comb: string[] = [];
